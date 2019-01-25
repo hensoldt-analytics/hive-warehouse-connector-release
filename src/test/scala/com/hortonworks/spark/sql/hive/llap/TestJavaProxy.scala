@@ -39,6 +39,7 @@ class TestJavaProxy extends FunSuite {
     val test = new HiveWarehouseSessionHiveQlTest()
     withSetUpAndTearDown(test, test.testCreateDatabase)
     withSetUpAndTearDown(test, test.testCreateTable)
+    withSetUpAndTearDown(test, test.testCreateTableWithPropagateException)
     withSetUpAndTearDown(test, test.testDescribeTable)
     withSetUpAndTearDown(test, test.testExecuteQuery)
     withSetUpAndTearDown(test, test.testUnqualifiedTable)

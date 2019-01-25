@@ -111,4 +111,21 @@ class HiveWarehouseSessionHiveQlTest extends SessionTestBase {
           .create();
     }
 
+  //we cannot do a negative/positive test for propagateException as for UTs we only parse query and return true
+  @Test
+  void testCreateTableWithPropagateException() {
+    com.hortonworks.hwc.CreateTableBuilder builder =
+        hive.createTable("TestTable");
+    builder
+        .ifNotExists()
+        .column("id", "int")
+        .column("val", "string")
+        .partition("id", "int")
+        .clusterBy(100, "val")
+        .prop("key", "value")
+        .propagateException()
+        .create();
+  }
+
+
 }
