@@ -278,8 +278,8 @@ class JDBCWrapper {
   // with no results
   // Useful for DDL statements like 'create table'
   def executeUpdate(conn: Connection,
-                  currentDatabase: String,
-                  query: String): Boolean = {
+                    currentDatabase: String,
+                    query: String): Boolean = {
     executeUpdate(conn, currentDatabase, query, throwOnException = false)
   }
 

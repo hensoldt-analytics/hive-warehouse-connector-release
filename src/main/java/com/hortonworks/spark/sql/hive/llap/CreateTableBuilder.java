@@ -36,6 +36,7 @@ public class CreateTableBuilder implements com.hortonworks.hwc.CreateTableBuilde
     private List<Pair<String, String>> props = new ArrayList<>();
     private String[] clusters;
     private Long buckets;
+    private boolean propagateException;
 
     public CreateTableBuilder(HiveWarehouseSession hive, String database, String tableName) {
         this.hive = hive;
@@ -50,6 +51,12 @@ public class CreateTableBuilder implements com.hortonworks.hwc.CreateTableBuilde
     }
 
     @Override
+    public CreateTableBuilder propagateException() {
+      this.propagateException = true;
+      return this;
+    }
+
+  @Override
     public CreateTableBuilder column(String name, String type) {
         cols.add(Pair.of(name, type));
         return this;
@@ -76,7 +83,7 @@ public class CreateTableBuilder implements com.hortonworks.hwc.CreateTableBuilde
 
     @Override
     public void create() {
-        hive.executeUpdate(this.toString());
+        hive.executeUpdate(this.toString(), propagateException);
     }
 
     public String toString() {

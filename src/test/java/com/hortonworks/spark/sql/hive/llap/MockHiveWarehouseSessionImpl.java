@@ -60,6 +60,15 @@ public class MockHiveWarehouseSessionImpl extends HiveWarehouseSessionImpl {
                 throw new RuntimeException(pe);
             }
         };
+      super.executeUpdateWithPropagateException =
+          (conn, database, sql, propagateException) -> {
+            try {
+              new org.apache.hadoop.hive.ql.parse.ParseDriver().parse(sql);
+              return true;
+            } catch(ParseException pe) {
+              throw new RuntimeException(pe);
+            }
+          };
         HiveWarehouseSessionImpl.HIVE_WAREHOUSE_CONNECTOR_INTERNAL =
                 "com.hortonworks.spark.sql.hive.llap.SimpleMockConnector";
     }
