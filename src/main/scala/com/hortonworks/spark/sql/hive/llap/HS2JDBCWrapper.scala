@@ -185,7 +185,7 @@ class JDBCWrapper {
     */
   def dropTable(conn: Connection, dbName: String, tableName: String, ifExists: Boolean): Unit = {
     val dropTableQuery = s"DROP TABLE ${if (ifExists) "IF EXISTS " else ""}$tableName"
-    executeUpdate(conn, dbName, dropTableQuery)
+    executeUpdate(conn, dbName, dropTableQuery, throwOnException = true)
   }
 
   def populateSchemaFields(ncols: Int,
