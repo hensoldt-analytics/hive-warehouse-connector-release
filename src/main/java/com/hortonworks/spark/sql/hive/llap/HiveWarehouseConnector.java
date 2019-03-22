@@ -1,5 +1,6 @@
 package com.hortonworks.spark.sql.hive.llap;
 
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -61,7 +62,11 @@ public class HiveWarehouseConnector implements DataSourceV2, ReadSupport, Sessio
   }
 
   protected DataSourceReader getDataSourceReader(Map<String, String> params) throws IOException {
-    return new HiveWarehouseDataSourceReader(params);
+    if (BooleanUtils.toBoolean(HWConf.DISABLE_PRUNING_AND_PUSHDOWNS.getFromOptionsMap(params))) {
+      return new HiveWarehouseDataSourceReader(params);
+    } else {
+      return new PrunedFilteredHiveWarehouseDataSourceReader(params);
+    }
   }
 
   protected DataSourceWriter getDataSourceWriter(String jobId, StructType schema,

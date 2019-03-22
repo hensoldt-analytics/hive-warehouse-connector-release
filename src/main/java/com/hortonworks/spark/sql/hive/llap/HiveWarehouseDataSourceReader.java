@@ -8,8 +8,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.v2.reader.DataReaderFactory;
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
-import org.apache.spark.sql.sources.v2.reader.SupportsPushDownFilters;
-import org.apache.spark.sql.sources.v2.reader.SupportsPushDownRequiredColumns;
 import org.apache.spark.sql.sources.v2.reader.SupportsScanColumnarBatch;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
@@ -22,12 +20,9 @@ import scala.collection.Seq;
 
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 
@@ -43,20 +38,13 @@ import static scala.collection.JavaConversions.asScalaBuffer;
  * 4. Spark pulls the filters that are supported by datasource -> pushedFilters(..)
  * 5. Spark pulls factories, where factory/task are 1:1 -> createBatchDataReaderFactories(..)
  */
-public class HiveWarehouseDataSourceReader
-    implements DataSourceReader, SupportsPushDownRequiredColumns, SupportsScanColumnarBatch, SupportsPushDownFilters {
+public class HiveWarehouseDataSourceReader implements DataSourceReader, SupportsScanColumnarBatch {
 
   //The pruned schema
   StructType schema = null;
 
   //The original schema
   StructType baseSchema = null;
-
-  //Pushed down filters
-  //
-  //"It's possible that there is no filters in the query and pushFilters(Filter[])
-  // is never called, empty array should be returned for this case."
-  Filter[] pushedFilters = new Filter[0];
 
   //SessionConfigSupport options
   Map<String, String> options;
@@ -131,29 +119,14 @@ public class HiveWarehouseDataSourceReader
     }
   }
 
-  //"returns unsupported filters."
-  @Override public Filter[] pushFilters(Filter[] filters) {
-    pushedFilters = Arrays.stream(filters).
-        filter((filter) -> FilterPushdown.buildFilterExpression(baseSchema, filter).isDefined()).
-        toArray(Filter[]::new);
-
-    return Arrays.stream(filters).
-        filter((filter) -> !FilterPushdown.buildFilterExpression(baseSchema, filter).isDefined()).
-        toArray(Filter[]::new);
-  }
-
-  @Override public Filter[] pushedFilters() {
-    return pushedFilters;
-  }
-
-  @Override public void pruneColumns(StructType requiredSchema) {
-    this.schema = requiredSchema;
+  public Filter[] getPushedFilters() {
+    return new Filter[0];
   }
 
   @Override public List<DataReaderFactory<ColumnarBatch>> createBatchDataReaderFactories() {
     try {
       boolean countStar = this.schema.length() == 0;
-      String queryString = getQueryString(SchemaUtil.columnNames(schema), pushedFilters);
+      String queryString = getQueryString(SchemaUtil.columnNames(schema), this.getPushedFilters());
       List<DataReaderFactory<ColumnarBatch>> factories = new ArrayList<>();
       if (countStar) {
         LOG.info("Executing count with query: {}", queryString);
