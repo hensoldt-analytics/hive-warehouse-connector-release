@@ -125,6 +125,7 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
   private void handleWriteWithSaveMode(String database, String table, Connection conn) {
     boolean createTable = false;
     boolean loadData = false;
+    String truncateOption = options.get(HWConf.TRUNCATE_OPTION_KEY);
     switch (mode) {
       case ErrorIfExists:
         if (tableExists) {
@@ -143,9 +144,16 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
         break;
       case Overwrite:
         if (tableExists) {
-          DefaultJDBCWrapper.dropTable(conn, database, table, false);
+          //option("truncate", "true")
+          if ("true".equalsIgnoreCase(truncateOption)) {
+            DefaultJDBCWrapper.truncateTable(conn, database, table);
+          } else {
+            DefaultJDBCWrapper.dropTable(conn, database, table, false);
+            createTable = true;
+          }
+        } else {
+          createTable = true;
         }
-        createTable = true;
         loadData = true;
         break;
       case Ignore:
@@ -157,8 +165,8 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
         break;
     }
 
-    LOG.info("Handling write: database:{}, table:{}, savemode: {}, tableExists:{}, createTable:{}, loadData:{}",
-        database, table, mode, tableExists, createTable, loadData);
+    LOG.info("Handling write: database:{}, table:{}, savemode: {}, tableExists:{}, createTable:{}, loadData:{}, truncate:{}",
+        database, table, mode, tableExists, createTable, loadData, truncateOption);
     if (createTable) {
       String createTableQuery = SchemaUtil.buildHiveCreateTableQueryFromSparkDFSchema(schema, database, table);
       DefaultJDBCWrapper.executeUpdate(conn, database, createTableQuery);

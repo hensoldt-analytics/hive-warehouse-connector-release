@@ -19,7 +19,7 @@ package com.hortonworks.spark.sql.hive.llap
 
 import java.net.URI
 import java.sql.{Connection, DatabaseMetaData, Driver, DriverManager, ResultSet, ResultSetMetaData, SQLException}
-import java.util.Properties
+import java.util.{Properties, StringJoiner}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -185,7 +185,38 @@ class JDBCWrapper {
     */
   def dropTable(conn: Connection, dbName: String, tableName: String, ifExists: Boolean): Unit = {
     val dropTableQuery = s"DROP TABLE ${if (ifExists) "IF EXISTS " else ""}$tableName"
-    executeUpdate(conn, dbName, dropTableQuery)
+    executeUpdate(conn, dbName, dropTableQuery, throwOnException = true)
+  }
+
+  /**
+    * Truncates the table.
+    * @param conn JDBC connection
+    * @param dbName Database name
+    * @param tableName Table name
+    */
+  def truncateTable(conn: Connection, dbName: String, tableName: String): Unit = {
+    val truncateTableQuery = s"TRUNCATE TABLE $tableName"
+    executeUpdate(conn, dbName, truncateTableQuery, throwOnException = true)
+  }
+
+
+  /**
+    * Unsets table properties.
+    * @param conn JDBC connection
+    * @param dbName Database name
+    * @param tableName Table name
+    * @param ifExists IF EXISTS option, i.e. UNSET TBLPROPERTIES IF EXISTS...
+    * @param propertyKeys property keys to unset
+    */
+  @annotation.varargs
+  def unsetTableProperties(conn: Connection, dbName: String, tableName: String, ifExists: Boolean,
+                           propertyKeys: String*): Unit = {
+    val joiner = new StringJoiner(",", "'", "'")
+    propertyKeys.foreach(key => joiner.add(key))
+    val query = s"ALTER TABLE $tableName UNSET TBLPROPERTIES" +
+      s" ${if (ifExists) "IF EXISTS " else ""}($joiner)"
+
+    executeUpdate(conn, dbName, query, throwOnException = true)
   }
 
   def populateSchemaFields(ncols: Int,
@@ -249,6 +280,15 @@ class JDBCWrapper {
   def executeUpdate(conn: Connection,
                   currentDatabase: String,
                   query: String): Boolean = {
+    executeUpdate(conn, currentDatabase, query, throwOnException = false)
+  }
+
+  // Used for executing statements directly from the Driver to HS2
+  // with no results
+  // Useful for DDL statements like 'create table'
+  def executeUpdate(conn: Connection,
+                    currentDatabase: String,
+                    query: String, throwOnException: Boolean): Boolean = {
     useDatabase(conn, currentDatabase)
     val stmt = conn.prepareStatement(query)
     log.debug(query)
@@ -258,6 +298,9 @@ class JDBCWrapper {
       true
     } catch {
       case e: Exception =>
+        if (throwOnException) {
+          throw e
+        }
         log.error(s"executeUpdate failed for query: ${query}", e)
         false
     } finally {
