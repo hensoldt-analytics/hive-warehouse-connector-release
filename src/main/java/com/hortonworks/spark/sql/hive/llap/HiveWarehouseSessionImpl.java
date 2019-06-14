@@ -51,6 +51,7 @@ public class HiveWarehouseSessionImpl implements com.hortonworks.hwc.HiveWarehou
     executeUpdate = (conn, database, sql) ->
       DefaultJDBCWrapper.executeUpdate(conn, database, sql);
     sessionState.session.listenerManager().register(new LlapQueryExecutionListener());
+    session().sparkContext().addSparkListener(new HwcSparkListener());
   }
 
   public Dataset<Row> q(String sql) {
