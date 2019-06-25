@@ -1,5 +1,6 @@
 package com.hortonworks.spark.sql.hive.llap;
 
+import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -56,16 +57,11 @@ public class HiveWarehouseDataSourceReader
 
   private static Logger LOG = LoggerFactory.getLogger(HiveWarehouseDataSourceReader.class);
 
+  private final String sessionId;
+
   public HiveWarehouseDataSourceReader(Map<String, String> options) throws IOException {
     this.options = options;
-
-    //this is a hack to prevent the following situation:
-    //Spark(v 2.4.0) creates one instance of DataSourceReader to call readSchema() and then a new instance of DataSourceReader
-    //to call pushFilters(), planBatchInputPartitions() etc. Since it uses different DataSourceReader instances,
-    //and reads schema in former instance, schema remains null in the latter instance(which causes problems for other methods).
-    //More discussion: http://apache-spark-user-list.1001560.n3.nabble.com/DataSourceV2-APIs-creating-multiple-instances-of-DataSourceReader-and-hence-not-preserving-the-state-tc33646.html
-    //Also a null check on schema is already there in readSchema() to prevent initialization more than once just in case.
-    readSchema();
+    sessionId = getCurrentSessionId();
   }
 
   //if(schema is empty) -> df.count()
@@ -90,6 +86,13 @@ public class HiveWarehouseDataSourceReader
 
   private StatementType getQueryType() throws Exception {
     return StatementType.fromOptions(options);
+  }
+
+  private String getCurrentSessionId() {
+    String sessionId = options.get(HiveWarehouseSessionImpl.HWC_SESSION_ID_KEY);
+    Preconditions.checkNotNull(sessionId,
+        "session id cannot be null, forgot to initialize HiveWarehouseSession???");
+    return sessionId;
   }
 
   protected StructType getTableSchema() throws Exception {
@@ -183,6 +186,9 @@ public class HiveWarehouseDataSourceReader
     } catch (IOException e) {
       LOG.error("Unable to submit query to HS2");
       throw new RuntimeException(e);
+    } finally {
+      // add handle id for HiveWarehouseSessionImpl#close()
+      HiveWarehouseSessionImpl.addResourceIdToSession(sessionId, options.get(JobUtil.LLAP_HANDLE_ID));
     }
     return tasks;
   }
@@ -234,9 +240,8 @@ public class HiveWarehouseDataSourceReader
   }
 
   public void close() {
-    LOG.info("Closing resources for handleid: {}", options.get("handleid"));
     try {
-      LlapBaseInputFormat.close(options.get("handleid"));
+      HiveWarehouseSessionImpl.closeAndRemoveResourceFromSession(sessionId, options.get(JobUtil.LLAP_HANDLE_ID));
     } catch (IOException ioe) {
       throw new RuntimeException(ioe);
     }
