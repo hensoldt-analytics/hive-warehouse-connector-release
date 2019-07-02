@@ -20,6 +20,8 @@ package com.hortonworks.spark.sql.hive.llap;
 import org.apache.hadoop.hive.llap.LlapBaseInputFormat;
 import org.apache.spark.scheduler.SparkListener;
 import org.apache.spark.scheduler.SparkListenerApplicationEnd;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * HwcSparkListener - Handles various events throughout the lifecycle of spark application.
@@ -29,11 +31,17 @@ import org.apache.spark.scheduler.SparkListenerApplicationEnd;
  */
 public class HwcSparkListener extends SparkListener {
 
+  private static Logger LOG = LoggerFactory.getLogger(HwcSparkListener.class);
+
   @Override
   public void onApplicationEnd(SparkListenerApplicationEnd applicationEnd) {
     super.onApplicationEnd(applicationEnd);
     // close any resource held by application.
     // these resources may be jdbc connections, locks on table etc
-    LlapBaseInputFormat.closeAll();
+    try {
+      LlapBaseInputFormat.closeAll();
+    } catch (Throwable e) {
+      LOG.warn("Unable to close LlapBaseInputFormat resources cleanly. This may or may not indicate errors.", e);
+    }
   }
 }
