@@ -61,6 +61,10 @@ public enum HWConf {
   //possible values - client/cluster. default - client
   public static final String SPARK_SUBMIT_DEPLOYMODE = "spark.submit.deployMode";
 
+  public String getQualifiedKey() {
+    return qualifiedKey;
+  }
+
   public void setString(HiveWarehouseSessionState state, String value) {
     state.props.put(qualifiedKey, value);
     state.session.sessionState().conf().setConfString(qualifiedKey, value);

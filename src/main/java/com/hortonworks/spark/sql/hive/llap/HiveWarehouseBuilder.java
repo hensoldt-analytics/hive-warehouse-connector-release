@@ -18,6 +18,8 @@
 package com.hortonworks.spark.sql.hive.llap;
 
 import org.apache.spark.sql.SparkSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 
 import static com.hortonworks.spark.sql.hive.llap.HWConf.HIVESERVER2_CREDENTIAL_ENABLED;
@@ -25,6 +27,8 @@ import static com.hortonworks.spark.sql.hive.llap.HWConf.HIVESERVER2_JDBC_URL;
 import static com.hortonworks.spark.sql.hive.llap.HWConf.HIVESERVER2_JDBC_URL_PRINCIPAL;
 
 public class HiveWarehouseBuilder {
+
+    private static final Logger LOG = LoggerFactory.getLogger(HiveWarehouseBuilder.class);
 
     HiveWarehouseSessionState sessionState = new HiveWarehouseSessionState();
 
@@ -51,6 +55,13 @@ public class HiveWarehouseBuilder {
             return null;
           }
         });
+
+      // disable pruning and pushdowns for spark v2.3.x to prevent BUG-118876
+      if (session.version().startsWith("2.3")) {
+        LOG.info("Detected spark v2.3.x, setting: {} to true", HWConf.DISABLE_PRUNING_AND_PUSHDOWNS.getQualifiedKey());
+        session.sessionState().conf().setConfString(HWConf.DISABLE_PRUNING_AND_PUSHDOWNS.getQualifiedKey(), "true");
+      }
+
         return builder;
     }
 
