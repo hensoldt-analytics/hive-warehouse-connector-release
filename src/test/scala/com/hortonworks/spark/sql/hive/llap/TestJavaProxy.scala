@@ -83,6 +83,16 @@ class TestJavaProxy extends FunSuite {
     withSetUpAndTearDown(test, test.testSmartExecutionCases);
   }
 
+  test("TestReadSupportUsingHiveWarehouseDataSourceReaderForSpark23x") {
+    val test = new TestReadSupportUsingHiveWarehouseDataSourceReaderForSpark23x()
+    withSetUpAndTearDown(test, test.testSimpleQuery)
+    withSetUpAndTearDown(test, test.testSimpleFilterPushdown)
+    withSetUpAndTearDown(test, test.messAroundAndTestReaderState)
+    withSetUpAndTearDown(test, test.testFiltersJoinedByOR)
+    withSetUpAndTearDown(test, test.testJoinWorksWithArrayIndexOutOfBounds)
+
+  }
+
   test("SparkToHiveRecordMapperTest") {
     val test = new SparkToHiveRecordMapperTest()
     withSetUpAndTearDown(test, test.testMapToHiveColumns)

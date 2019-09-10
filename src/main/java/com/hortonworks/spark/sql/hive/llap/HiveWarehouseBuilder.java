@@ -56,12 +56,6 @@ public class HiveWarehouseBuilder {
           }
         });
 
-      // disable pruning and pushdowns for spark v2.3.x to prevent BUG-118876
-      if (session.version().startsWith("2.3")) {
-        LOG.info("Detected spark v2.3.x, setting: {} to true", HWConf.DISABLE_PRUNING_AND_PUSHDOWNS.getQualifiedKey());
-        session.sessionState().conf().setConfString(HWConf.DISABLE_PRUNING_AND_PUSHDOWNS.getQualifiedKey(), "true");
-      }
-
         return builder;
     }
 

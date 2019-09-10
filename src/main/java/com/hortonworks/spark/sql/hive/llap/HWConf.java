@@ -46,7 +46,9 @@ public enum HWConf {
   //on batch write path, setting this ensures that dataframe has columns congruent to hive table
   WRITE_PATH_STRICT_COLUMN_NAMES_MAPPING("write.path.strictColumnNamesMapping",
       warehouseKey("write.path.strictColumnNamesMapping"), "true"),
-  DISABLE_PRUNING_AND_PUSHDOWNS("disable.pruning.and.pushdowns", warehouseKey("disable.pruning.and.pushdowns"), false);
+  DISABLE_PRUNING_AND_PUSHDOWNS("disable.pruning.and.pushdowns", warehouseKey("disable.pruning.and.pushdowns"), false),
+  USE_SPARK23X_SPECIFIC_READER("use.spark23x.specific.reader",
+      warehouseKey("use.spark23x.specific.reader"), true);
 
   private HWConf(String simpleKey, String qualifiedKey, Object defaultValue) {
     this.simpleKey = simpleKey;
@@ -65,6 +67,11 @@ public enum HWConf {
   //possible values - client/cluster. default - client
   public static final String SPARK_SUBMIT_DEPLOYMODE = "spark.submit.deployMode";
   public static final String PARTITION_OPTION_KEY = "partition";
+
+  public static final String INVALID_READER_CONFIG_ERR_MSG =
+      String.format("Both the configs %s and %s cannot be true at the same time. Only one should be set.",
+          DISABLE_PRUNING_AND_PUSHDOWNS.getQualifiedKey(),
+          USE_SPARK23X_SPECIFIC_READER.getQualifiedKey());
 
   public String getQualifiedKey() {
     return qualifiedKey;
