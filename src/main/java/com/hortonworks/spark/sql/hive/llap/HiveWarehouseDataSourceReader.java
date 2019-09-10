@@ -54,7 +54,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
 
   private final String sessionId;
 
-  public HiveWarehouseDataSourceReader(Map<String, String> options) throws IOException {
+  public HiveWarehouseDataSourceReader(Map<String, String> options) {
     this.options = options;
     sessionId = getCurrentSessionId();
   }
@@ -62,7 +62,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
   //if(schema is empty) -> df.count()
   //else if(using table option) -> select *
   //else -> SELECT <COLUMNS> FROM (<RAW_SQL>) WHERE <FILTER_CLAUSE>
-  String getQueryString(String[] requiredColumns, Filter[] filters) throws Exception {
+  protected String getQueryString(String[] requiredColumns, Filter[] filters) throws Exception {
     String selectCols = "count(*)";
     if (requiredColumns.length > 0) {
       selectCols = projections(requiredColumns);
@@ -74,12 +74,17 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
       baseQuery = options.get("query");
     }
 
-    Seq<Filter> filterSeq = asScalaBuffer(Arrays.asList(filters)).seq();
-    String whereClause = buildWhereClause(baseSchema, filterSeq);
-    return selectProjectAliasFilter(selectCols, baseQuery, randomAlias(), whereClause);
+    String query = selectProjectAliasFilter(selectCols, baseQuery, randomAlias(), buildWhereClauseFromFilters(filters));
+    LOG.info("Final Query: {}", query);
+    return query;
   }
 
-  private StatementType getQueryType() throws Exception {
+  protected String buildWhereClauseFromFilters(Filter[] filters) {
+    Seq<Filter> filterSeq = asScalaBuffer(Arrays.asList(filters)).seq();
+    return buildWhereClause(baseSchema, filterSeq);
+  }
+
+  StatementType getQueryType() {
     return StatementType.fromOptions(options);
   }
 
@@ -175,7 +180,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
     return new HiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax);
   }
 
-  private List<DataReaderFactory<ColumnarBatch>> getCountStarFactories(String query) {
+  protected List<DataReaderFactory<ColumnarBatch>> getCountStarFactories(String query) {
     List<DataReaderFactory<ColumnarBatch>> tasks = new ArrayList<>(100);
     long count = getCount(query);
     String numTasksString = HWConf.COUNT_TASKS.getFromOptionsMap(options);

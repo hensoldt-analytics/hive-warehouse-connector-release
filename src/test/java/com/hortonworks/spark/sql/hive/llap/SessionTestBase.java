@@ -19,6 +19,7 @@ public class SessionTestBase {
         .master("local")
         .appName(name)
         .getOrCreate();
+    session.conf().set(HWConf.USE_SPARK23X_SPECIFIC_READER.getQualifiedKey(), false);
   }
 
   @After

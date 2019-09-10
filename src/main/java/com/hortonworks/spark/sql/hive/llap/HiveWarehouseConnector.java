@@ -1,5 +1,6 @@
 package com.hortonworks.spark.sql.hive.llap;
 
+import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -20,6 +21,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.hortonworks.spark.sql.hive.llap.HWConf.DISABLE_PRUNING_AND_PUSHDOWNS;
+import static com.hortonworks.spark.sql.hive.llap.HWConf.USE_SPARK23X_SPECIFIC_READER;
 
 /*
  * Driver:
@@ -62,9 +66,23 @@ public class HiveWarehouseConnector implements DataSourceV2, ReadSupport, Sessio
   }
 
   protected DataSourceReader getDataSourceReader(Map<String, String> params) throws IOException {
-    if (BooleanUtils.toBoolean(HWConf.DISABLE_PRUNING_AND_PUSHDOWNS.getFromOptionsMap(params))) {
+
+    boolean useSpark23xReader = BooleanUtils.toBoolean(USE_SPARK23X_SPECIFIC_READER.getFromOptionsMap(params));
+    boolean disablePruningPushdown = BooleanUtils.toBoolean(DISABLE_PRUNING_AND_PUSHDOWNS.getFromOptionsMap(params));
+
+    LOG.info("Found reader configuration - {}={}, {}={}", USE_SPARK23X_SPECIFIC_READER.getQualifiedKey(), useSpark23xReader,
+        DISABLE_PRUNING_AND_PUSHDOWNS.getQualifiedKey(), disablePruningPushdown);
+
+    Preconditions.checkState(!(useSpark23xReader && disablePruningPushdown), HWConf.INVALID_READER_CONFIG_ERR_MSG);
+
+    if (useSpark23xReader) {
+      LOG.info("Using reader HiveWarehouseDataSourceReaderForSpark23x with column pruning disabled");
+      return new HiveWarehouseDataSourceReaderForSpark23x(params);
+    } else if (disablePruningPushdown) {
+      LOG.info("Using reader HiveWarehouseDataSourceReader with column pruning and filter pushdown disabled");
       return new HiveWarehouseDataSourceReader(params);
     } else {
+      LOG.info("Using reader PrunedFilteredHiveWarehouseDataSourceReader");
       return new PrunedFilteredHiveWarehouseDataSourceReader(params);
     }
   }

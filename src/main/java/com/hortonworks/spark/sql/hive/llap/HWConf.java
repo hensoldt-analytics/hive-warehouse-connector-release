@@ -42,7 +42,9 @@ public enum HWConf {
   LOAD_STAGING_DIR("load.staging.dir", warehouseKey("load.staging.dir"), "/tmp"),
   ARROW_ALLOCATOR_MAX("arrow.allocator.max", warehouseKey("arrow.allocator.max"), Long.MAX_VALUE),
   COUNT_TASKS("count.tasks", warehouseKey("count.tasks"), 100),
-  DISABLE_PRUNING_AND_PUSHDOWNS("disable.pruning.and.pushdowns", warehouseKey("disable.pruning.and.pushdowns"), false);
+  DISABLE_PRUNING_AND_PUSHDOWNS("disable.pruning.and.pushdowns", warehouseKey("disable.pruning.and.pushdowns"), false),
+  USE_SPARK23X_SPECIFIC_READER("use.spark23x.specific.reader",
+      warehouseKey("use.spark23x.specific.reader"), true);;
 
   private HWConf(String simpleKey, String qualifiedKey, Object defaultValue) {
     this.simpleKey = simpleKey;
@@ -60,6 +62,16 @@ public enum HWConf {
   public static final String HIVESERVER2_JDBC_URL = "spark.sql.hive.hiveserver2.jdbc.url";
   //possible values - client/cluster. default - client
   public static final String SPARK_SUBMIT_DEPLOYMODE = "spark.submit.deployMode";
+
+  public static final String INVALID_READER_CONFIG_ERR_MSG =
+      String.format("Both the configs %s and %s cannot be true at the same time. Only one should be set.",
+          DISABLE_PRUNING_AND_PUSHDOWNS.getQualifiedKey(),
+          USE_SPARK23X_SPECIFIC_READER.getQualifiedKey());
+
+
+  public String getQualifiedKey() {
+    return qualifiedKey;
+  }
 
   public void setString(HiveWarehouseSessionState state, String value) {
     state.props.put(qualifiedKey, value);
