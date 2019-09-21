@@ -12,11 +12,15 @@ import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.UUID;
+
+import org.apache.spark.TaskContext;
+import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class JobUtil {
 
+  public static final String SPARK_SQL_EXECUTION_ID = "spark.sql.execution.id";
   private static Logger LOG = LoggerFactory.getLogger(JobUtil.class);
   public static final String LLAP_HANDLE_ID = "handleid";
 
@@ -36,10 +40,18 @@ public class JobUtil {
       String handleId = UUID.randomUUID().toString();
       options.put("handleid", handleId);
     }
-    jobConf.set("llap.if.handleid", options.get("handleid"));
     jobConf.set("llap.if.handleid", options.get(LLAP_HANDLE_ID));
+    jobConf.set("llap.if.use.new.split.format", "true");
 
     return jobConf;
+  }
+
+  public static String getSqlExecutionIdAtDriver() {
+    return SparkSession.getActiveSession().get().sparkContext().getLocalProperty(SPARK_SQL_EXECUTION_ID);
+  }
+
+  public static String getSqlExecutionIdAtExecutor() {
+    return TaskContext.get().getLocalProperty(SPARK_SQL_EXECUTION_ID);
   }
 
   public static void replaceSparkHiveDriver() throws Exception {

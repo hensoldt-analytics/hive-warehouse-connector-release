@@ -18,11 +18,11 @@
 package com.hortonworks.spark.sql.hive.llap;
 
 import com.google.common.base.Preconditions;
+import com.hortonworks.spark.sql.hive.llap.common.HwcResource;
 import com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil;
 import com.hortonworks.spark.sql.hive.llap.util.JobUtil;
 import com.hortonworks.spark.sql.hive.llap.util.TriFunction;
 import org.apache.commons.lang.BooleanUtils;
-import org.apache.hadoop.hive.llap.LlapBaseInputFormat;
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.DataFrameReader;
 import org.apache.spark.sql.Dataset;
@@ -61,11 +61,10 @@ public class HiveWarehouseSessionImpl implements com.hortonworks.hwc.HiveWarehou
   protected TriFunction<Connection, String, String, Boolean> executeUpdate;
 
   /**
-   * Keeps resources handles by session id. As of now these resources handles are llap handles which are basically
-   * jdbc connections, locks etc.
+   * Keeps resources handles by session id. Resources are of types @{@link HwcResource}
    * {@link #close()} method closes all of them and session as well.
    */
-  private static final Map<String, Set<String>> RESOURCE_IDS_BY_SESSION_ID = new HashMap<>();
+  private static final Map<String, Set<HwcResource>> RESOURCE_IDS_BY_SESSION_ID = new HashMap<>();
 
   private final String sessionId;
   private final AtomicReference<HwcSessionState> hwcSessionStateRef;
@@ -104,7 +103,7 @@ public class HiveWarehouseSessionImpl implements com.hortonworks.hwc.HiveWarehou
     return dfr.load();
   }
 
-  static void addResourceIdToSession(String sessionId, String resourceId) {
+  static void addResourceIdToSession(String sessionId, HwcResource resourceId) {
     LOG.info("Adding resource: {} to current session: {}", resourceId, sessionId);
     synchronized (RESOURCE_IDS_BY_SESSION_ID) {
       RESOURCE_IDS_BY_SESSION_ID.putIfAbsent(sessionId, new HashSet<>());
@@ -112,33 +111,28 @@ public class HiveWarehouseSessionImpl implements com.hortonworks.hwc.HiveWarehou
     }
   }
 
-  static void closeAndRemoveResourceFromSession(String sessionId, String resourceId) throws IOException {
-    Set<String> resourceIds;
+  static void closeAndRemoveResourceFromSession(String sessionId, HwcResource hwcResource) throws IOException {
+    Set<HwcResource> hwcResources;
     boolean resourcePresent;
     synchronized (RESOURCE_IDS_BY_SESSION_ID) {
-      resourceIds = RESOURCE_IDS_BY_SESSION_ID.get(sessionId);
-      resourcePresent = resourceIds != null && resourceIds.remove(resourceId);
+      hwcResources = RESOURCE_IDS_BY_SESSION_ID.get(sessionId);
+      resourcePresent = hwcResources != null && hwcResources.remove(hwcResource);
     }
     if (resourcePresent) {
-      LOG.info("Remove and close resource: {} from current session: {}", resourceId, sessionId);
-      closeLlapResources(sessionId, resourceId);
+      LOG.info("Remove and close resource: {} from current session: {}", hwcResource, sessionId);
+      hwcResource.close();
     }
-  }
-
-  private static void closeLlapResources(String sessionId, String resourceId) throws IOException {
-    LOG.info("Closing llap resource: {} for current session: {}", resourceId, sessionId);
-    LlapBaseInputFormat.close(resourceId);
   }
 
   private static void closeSessionResources(String sessionId) throws IOException {
     LOG.info("Closing all resources for current session: {}", sessionId);
-    Set<String> resourcesIds;
+    Set<HwcResource> hwcResources;
     synchronized (RESOURCE_IDS_BY_SESSION_ID) {
-      resourcesIds = RESOURCE_IDS_BY_SESSION_ID.remove(sessionId);
+      hwcResources = RESOURCE_IDS_BY_SESSION_ID.remove(sessionId);
     }
-    if (resourcesIds != null && !resourcesIds.isEmpty()) {
-      for (String resourceId : resourcesIds) {
-        closeLlapResources(sessionId, resourceId);
+    if (hwcResources != null && !hwcResources.isEmpty()) {
+      for (HwcResource resource : hwcResources) {
+        resource.close();
       }
     }
   }

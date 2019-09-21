@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.Lists;
+import com.hortonworks.spark.sql.hive.llap.common.CommonBroadcastInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
@@ -74,7 +75,7 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
   public static class MockHiveWarehouseDataReader extends HiveWarehouseDataReader {
 
     public MockHiveWarehouseDataReader(LlapInputSplit split, JobConf conf, long arrowAllocatorMax) throws Exception {
-      super(split, conf, arrowAllocatorMax);
+      super(split, conf, arrowAllocatorMax, null);
     }
 
     @Override
@@ -97,14 +98,14 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     @Override
     public DataReader<ColumnarBatch> createDataReader() {
       try {
-        return getDataReader(null, new JobConf(), Long.MAX_VALUE);
+        return getDataReader(null, new JobConf(), Long.MAX_VALUE, null);
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
     }
 
     @Override
-    protected DataReader<ColumnarBatch> getDataReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax)
+    protected DataReader<ColumnarBatch> getDataReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo)
         throws Exception {
       return new MockHiveWarehouseDataReader(split, jobConf, arrowAllocatorMax);
     }
@@ -122,7 +123,7 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     }
 
     @Override
-    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf, long arrowAllocatorMax) {
+    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
       return new MockHiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax);
     }
 
@@ -156,7 +157,7 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
 
     @Override
     protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf,
-                                                                    long arrowAllocatorMax) {
+                                                                    long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
       return new MockHiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax);
     }
 

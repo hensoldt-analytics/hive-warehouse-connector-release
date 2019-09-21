@@ -1,19 +1,24 @@
 package com.hortonworks.spark.sql.hive.llap;
 
 import com.google.common.base.Preconditions;
+import com.hortonworks.spark.sql.hive.llap.common.CommonBroadcastInfo;
+import com.hortonworks.spark.sql.hive.llap.common.HwcResource;
 import com.hortonworks.spark.sql.hive.llap.util.JobUtil;
 import com.hortonworks.spark.sql.hive.llap.util.SchemaUtil;
 import org.apache.hadoop.hive.llap.LlapBaseInputFormat;
+import org.apache.hadoop.hive.llap.LlapInputSplit;
+import org.apache.hadoop.hive.llap.Schema;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.v2.reader.DataReaderFactory;
 import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
 import org.apache.spark.sql.sources.v2.reader.SupportsScanColumnarBatch;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
-import org.apache.hadoop.hive.llap.LlapInputSplit;
-import org.apache.hadoop.hive.llap.Schema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Option;
@@ -28,7 +33,10 @@ import java.util.List;
 import java.util.Map;
 
 import static com.hortonworks.spark.sql.hive.llap.FilterPushdown.buildWhereClause;
-import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.*;
+import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.projections;
+import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.randomAlias;
+import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.selectProjectAliasFilter;
+import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.selectStar;
 import static com.hortonworks.spark.sql.hive.llap.util.JobUtil.replaceSparkHiveDriver;
 import static scala.collection.JavaConversions.asScalaBuffer;
 
@@ -53,6 +61,8 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
   private static Logger LOG = LoggerFactory.getLogger(HiveWarehouseDataSourceReader.class);
 
   private final String sessionId;
+  private CommonBroadcastInfo commonBroadcastInfo;
+  private HwcResource hwcResource;
 
   public HiveWarehouseDataSourceReader(Map<String, String> options) {
     this.options = options;
@@ -163,21 +173,70 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
       LlapBaseInputFormat llapInputFormat = new LlapBaseInputFormat(false, Long.MAX_VALUE);
       //numSplits arg not currently supported, use 1 as dummy arg
       InputSplit[] splits = llapInputFormat.getSplits(jobConf, 1);
-      for (InputSplit split : splits) {
-        tasks.add(getDataReaderFactory(split, jobConf, getArrowAllocatorMax()));
+      LOG.info("Number of splits generated: {}", splits.length);
+
+      if (splits.length > 2) {
+        commonBroadcastInfo = prepareCommonBroadcastInfo(splits);
+        LOG.info("Serializing {} actual splits to send to executors", (splits.length - 2));
+        long start = System.currentTimeMillis();
+        for (int i = 2; i < splits.length; i++) {
+          LlapInputSplit actualSplit = (LlapInputSplit) splits[i];
+          tasks.add(getDataReaderFactory(actualSplit, jobConf, getArrowAllocatorMax(), commonBroadcastInfo));
+        }
+        long end = System.currentTimeMillis();
+        LOG.info("Serialized {} actual splits in {} millis", (splits.length - 2), (end - start));
+      } else {
+        LOG.warn("No actual splits generated for query: {}", query);
       }
     } catch (IOException e) {
       LOG.error("Unable to submit query to HS2");
       throw new RuntimeException(e);
     } finally {
       // add handle id for HiveWarehouseSessionImpl#close()
-      HiveWarehouseSessionImpl.addResourceIdToSession(sessionId, options.get(JobUtil.LLAP_HANDLE_ID));
+      hwcResource = new HwcResource(options.get(JobUtil.LLAP_HANDLE_ID), commonBroadcastInfo);
+      HiveWarehouseSessionImpl.addResourceIdToSession(sessionId, hwcResource);
     }
     return tasks;
   }
 
-  protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf, long arrowAllocatorMax) {
-    return new HiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax);
+  private CommonBroadcastInfo prepareCommonBroadcastInfo(InputSplit[] splits) {
+    SparkContext sparkContext = SparkSession.getActiveSession().get().sparkContext();
+
+    // populate actual splits with schema and planBytes[]
+    LlapInputSplit schemaSplit = (LlapInputSplit) splits[0];
+    LlapInputSplit planSplit = (LlapInputSplit) splits[1];
+
+    // Don't broadcast if splits have already been broadcast for some previous execution
+    if (commonBroadcastInfo != null
+        && commonBroadcastInfo.getSchemaSplit().isValid()
+        && commonBroadcastInfo.getPlanSplit().isValid()
+        && planSplit.equals(commonBroadcastInfo.getPlanSplit().getValue().getLlapInputSplit())
+        && schemaSplit.equals(commonBroadcastInfo.getSchemaSplit().getValue().getLlapInputSplit())) {
+      return commonBroadcastInfo;
+    }
+
+    Broadcast<SerializableLlapInputSplit> planSplitBroadcast =
+        broadcastSplit(sparkContext, planSplit);
+
+    Broadcast<SerializableLlapInputSplit> schemaSplitBroadcast =
+        broadcastSplit(sparkContext, schemaSplit);
+
+    CommonBroadcastInfo commonBroadcastInfo = new CommonBroadcastInfo();
+    commonBroadcastInfo.setSchemaSplit(schemaSplitBroadcast);
+    commonBroadcastInfo.setPlanSplit(planSplitBroadcast);
+
+    return commonBroadcastInfo;
+  }
+
+  private Broadcast<SerializableLlapInputSplit> broadcastSplit(SparkContext sparkContext, LlapInputSplit planSplit) {
+    return sparkContext.broadcast(new SerializableLlapInputSplit(planSplit),
+        SchemaUtil.classTag(SerializableLlapInputSplit.class));
+  }
+
+  protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf,
+                                                                  long arrowAllocatorMax,
+                                                                  CommonBroadcastInfo commonBroadcastInfo) {
+    return new HiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax, commonBroadcastInfo);
   }
 
   protected List<DataReaderFactory<ColumnarBatch>> getCountStarFactories(String query) {
@@ -185,9 +244,9 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
     long count = getCount(query);
     String numTasksString = HWConf.COUNT_TASKS.getFromOptionsMap(options);
     int numTasks = Integer.parseInt(numTasksString);
-    long numPerTask = count/(numTasks - 1);
+    long numPerTask = count / (numTasks - 1);
     long numLastTask = count % (numTasks - 1);
-    for(int i = 0; i < (numTasks - 1); i++) {
+    for (int i = 0; i < (numTasks - 1); i++) {
       tasks.add(new CountDataReaderFactory(numPerTask));
     }
     tasks.add(new CountDataReaderFactory(numLastTask));
@@ -195,7 +254,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
   }
 
   protected long getCount(String query) {
-    try(Connection conn = getConnection()) {
+    try (Connection conn = getConnection()) {
       DriverResultSet rs = DefaultJDBCWrapper.executeStmt(conn, HWConf.DEFAULT_DB.getFromOptionsMap(options), query,
           Long.parseLong(HWConf.MAX_EXEC_RESULTS.getFromOptionsMap(options)));
       return rs.getData().get(0).getLong(0);
@@ -224,7 +283,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
 
   public void close() {
     try {
-      HiveWarehouseSessionImpl.closeAndRemoveResourceFromSession(sessionId, options.get(JobUtil.LLAP_HANDLE_ID));
+      HiveWarehouseSessionImpl.closeAndRemoveResourceFromSession(sessionId, hwcResource);
     } catch (IOException ioe) {
       throw new RuntimeException(ioe);
     }
