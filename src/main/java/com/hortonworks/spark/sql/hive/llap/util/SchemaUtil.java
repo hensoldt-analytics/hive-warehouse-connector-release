@@ -4,6 +4,7 @@ import com.hortonworks.spark.sql.hive.llap.CreateTableBuilder;
 import org.apache.hadoop.hive.llap.FieldDesc;
 import org.apache.hadoop.hive.llap.Schema;
 import org.apache.spark.sql.types.*;
+import scala.reflect.ClassTag;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,6 +91,11 @@ public class SchemaUtil {
     } else {
       throw new IllegalArgumentException("Table name should be specified as either <table> or <db.table>");
     }
+  }
+
+
+  public static <T> ClassTag<T> classTag(Class<T> clazz) {
+    return scala.reflect.ClassManifestFactory.fromClass(clazz);
   }
 
   public static class TableRef {

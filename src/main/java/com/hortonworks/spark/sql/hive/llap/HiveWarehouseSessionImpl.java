@@ -20,16 +20,26 @@ package com.hortonworks.spark.sql.hive.llap;
 import com.hortonworks.hwc.MergeBuilder;
 import com.hortonworks.spark.sql.hive.llap.util.*;
 import com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil.ExecutionMethod;
+import com.hortonworks.spark.sql.hive.llap.common.HwcResource;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.lang.BooleanUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.DataFrameReader;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static com.hortonworks.spark.sql.hive.llap.HWConf.*;
@@ -38,6 +48,10 @@ import static com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil.resolv
 
 public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseSession {
   static String HIVE_WAREHOUSE_CONNECTOR_INTERNAL = HiveWarehouseSession.HIVE_WAREHOUSE_CONNECTOR;
+
+  public static final String HWC_SESSION_ID_KEY = "hwc_session_id";
+
+  private static final Logger LOG = LoggerFactory.getLogger(HiveWarehouseSessionImpl.class);
 
   protected HiveWarehouseSessionState sessionState;
 
@@ -49,8 +63,18 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
 
   protected FunctionWith4Args<Connection, String, String, Boolean, Boolean> executeUpdateWithPropagateException;
 
+  /**
+   * Keeps resources handles by session id. Resources are of types @{@link HwcResource}
+   * {@link #close()} method closes all of them and session as well.
+   */
+  private static final Map<String, Set<HwcResource>> RESOURCE_IDS_BY_SESSION_ID = new HashMap<>();
+
+  private final String sessionId;
+  private final AtomicReference<HwcSessionState> hwcSessionStateRef;
+
   public HiveWarehouseSessionImpl(HiveWarehouseSessionState sessionState) {
     this.sessionState = sessionState;
+    this.sessionId = UUID.randomUUID().toString();
     getConnector = () -> DefaultJDBCWrapper.getConnector(sessionState);
     executeStmt = (conn, database, sql) ->
       DefaultJDBCWrapper.executeStmt(conn, database, sql, MAX_EXEC_RESULTS.getInt(sessionState));
@@ -58,6 +82,12 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
       DefaultJDBCWrapper.executeUpdate(conn, database, sql);
     executeUpdateWithPropagateException = DefaultJDBCWrapper::executeUpdate;
     sessionState.session.listenerManager().register(new LlapQueryExecutionListener());
+    hwcSessionStateRef = new AtomicReference<>(HwcSessionState.OPEN);
+    LOG.info("Created a new HWC session: {}", sessionId);
+  }
+
+  private enum HwcSessionState {
+    OPEN, CLOSED;
   }
 
   public Dataset<Row> q(String sql) {
@@ -77,11 +107,45 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
   }
 
   private Dataset<Row> executeQueryInternal(String sql, Integer numSplitsToDemand) {
-    DataFrameReader dfr = session().read().format(HIVE_WAREHOUSE_CONNECTOR_INTERNAL).option("query", sql);
+    DataFrameReader dfr = session().read().format(HIVE_WAREHOUSE_CONNECTOR_INTERNAL).option("query", sql).option(HWC_SESSION_ID_KEY, sessionId);
     if (numSplitsToDemand != null) {
       dfr.option(JobUtil.SESSION_QUERIES_FOR_GET_NUM_SPLITS, setSplitPropertiesQuery(numSplitsToDemand));
     }
     return dfr.load();
+  }
+
+  static void addResourceIdToSession(String sessionId, HwcResource resourceId) {
+    LOG.info("Adding resource: {} to current session: {}", resourceId, sessionId);
+    synchronized (RESOURCE_IDS_BY_SESSION_ID) {
+      RESOURCE_IDS_BY_SESSION_ID.putIfAbsent(sessionId, new HashSet<>());
+      RESOURCE_IDS_BY_SESSION_ID.get(sessionId).add(resourceId);
+    }
+  }
+
+  static void closeAndRemoveResourceFromSession(String sessionId, HwcResource hwcResource) throws IOException {
+    Set<HwcResource> hwcResources;
+    boolean resourcePresent;
+    synchronized (RESOURCE_IDS_BY_SESSION_ID) {
+      hwcResources = RESOURCE_IDS_BY_SESSION_ID.get(sessionId);
+      resourcePresent = hwcResources != null && hwcResources.remove(hwcResource);
+    }
+    if (resourcePresent) {
+      LOG.info("Remove and close resource: {} from current session: {}", hwcResource, sessionId);
+      hwcResource.close();
+    }
+  }
+
+  private static void closeSessionResources(String sessionId) throws IOException {
+    LOG.info("Closing all resources for current session: {}", sessionId);
+    Set<HwcResource> hwcResources;
+    synchronized (RESOURCE_IDS_BY_SESSION_ID) {
+      hwcResources = RESOURCE_IDS_BY_SESSION_ID.remove(sessionId);
+    }
+    if (hwcResources != null && !hwcResources.isEmpty()) {
+      for (HwcResource resource : hwcResources) {
+        resource.close();
+      }
+    }
   }
 
   private String setSplitPropertiesQuery(int numSplitsToDemand) {
@@ -138,7 +202,7 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
   }
 
   public Dataset<Row> table(String sql) {
-    DataFrameReader dfr = session().read().format(HIVE_WAREHOUSE_CONNECTOR_INTERNAL).option("table", sql);
+    DataFrameReader dfr = session().read().format(HIVE_WAREHOUSE_CONNECTOR_INTERNAL).option("table", sql).option(HWC_SESSION_ID_KEY, sessionId);
     return dfr.load();
   }
 
@@ -209,4 +273,3 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
   }
 
 }
-

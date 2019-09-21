@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
+import com.hortonworks.spark.sql.hive.llap.common.CommonBroadcastInfo;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.hadoop.hive.llap.LlapBaseInputFormat;
 import org.apache.hadoop.hive.llap.LlapInputSplit;
@@ -20,6 +21,20 @@ import org.apache.spark.sql.sources.v2.reader.InputPartitionReader;
 import org.apache.spark.sql.vectorized.ArrowColumnVector;
 import org.apache.spark.sql.vectorized.ColumnVector;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
+import org.apache.spark.TaskContext;
+
+import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
+import org.apache.hadoop.mapreduce.TaskAttemptID;
+import org.apache.hadoop.mapreduce.TaskID;
+import org.apache.hadoop.mapreduce.JobID;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.mapreduce.MRJobConfig;
+import org.apache.hadoop.hive.llap.SubmitWorkInfo;
+import org.apache.hadoop.mapreduce.TaskType;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.hadoop.hive.ql.io.arrow.RootAllocatorFactory;
 
 public class HiveWarehouseInputPartitionReader implements InputPartitionReader<ColumnarBatch> {
 
@@ -35,9 +50,16 @@ public class HiveWarehouseInputPartitionReader implements InputPartitionReader<C
   private String attemptId;
   private boolean inputExhausted = false;
 
-  public HiveWarehouseInputPartitionReader(LlapInputSplit split, JobConf conf, long arrowAllocatorMax) throws Exception {
+  public HiveWarehouseInputPartitionReader(LlapInputSplit split, JobConf conf, long arrowAllocatorMax,
+                                 CommonBroadcastInfo commonBroadcastInfo) throws Exception {
     //Set TASK_ATTEMPT_ID to submit to LlapOutputFormatService
     this.allocatorMax = arrowAllocatorMax;
+
+    commonBroadcastInfo.getPlanSplit().assertValid();
+    split.setPlanBytes(commonBroadcastInfo.getPlanSplit().getValue().getLlapInputSplit().getPlanBytes());
+    commonBroadcastInfo.getSchemaSplit().assertValid();
+    split.setSchema(commonBroadcastInfo.getSchemaSplit().getValue().getLlapInputSplit().getSchema());
+   // Set TASK_ATTEMPT_ID to submit to LlapOutputFormatService
     this.attemptId = getTaskAttemptID(split, conf).toString();
     conf.set(MRJobConfig.TASK_ATTEMPT_ID, this.attemptId);
     this.reader = getRecordReader(split, conf, arrowAllocatorMax);
@@ -114,4 +136,3 @@ public class HiveWarehouseInputPartitionReader implements InputPartitionReader<C
   }
 
 }
-

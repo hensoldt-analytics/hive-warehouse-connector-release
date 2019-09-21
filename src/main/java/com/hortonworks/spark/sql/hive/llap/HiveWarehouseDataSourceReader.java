@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import com.google.common.base.Preconditions;
+import com.hortonworks.spark.sql.hive.llap.common.CommonBroadcastInfo;
+import com.hortonworks.spark.sql.hive.llap.common.HwcResource;
 
 import com.hortonworks.spark.sql.hive.llap.util.JobUtil;
 import com.hortonworks.spark.sql.hive.llap.util.SchemaUtil;
@@ -15,6 +18,9 @@ import org.apache.hadoop.hive.llap.LlapInputSplit;
 import org.apache.hadoop.hive.llap.Schema;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.broadcast.Broadcast;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.v2.reader.*;
 import org.apache.spark.sql.types.StructType;
@@ -25,7 +31,10 @@ import scala.Option;
 import scala.collection.Seq;
 
 import static com.hortonworks.spark.sql.hive.llap.FilterPushdown.buildWhereClause;
-import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.*;
+import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.projections;
+import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.randomAlias;
+import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.selectProjectAliasFilter;
+import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.selectStar;
 import static com.hortonworks.spark.sql.hive.llap.util.JobUtil.replaceSparkHiveDriver;
 import static scala.collection.JavaConversions.asScalaBuffer;
 
@@ -56,9 +65,13 @@ public class HiveWarehouseDataSourceReader
 
   private static Logger LOG = LoggerFactory.getLogger(HiveWarehouseDataSourceReader.class);
 
-  public HiveWarehouseDataSourceReader(Map<String, String> options) throws IOException {
-    this.options = options;
+  private final String sessionId;
+  private CommonBroadcastInfo commonBroadcastInfo;
+  private HwcResource hwcResource;
 
+  public HiveWarehouseDataSourceReader(Map<String, String> options) {
+    this.options = options;
+    sessionId = getCurrentSessionId();
     //this is a hack to prevent the following situation:
     //Spark(v 2.4.0) creates one instance of DataSourceReader to call readSchema() and then a new instance of DataSourceReader
     //to call pushFilters(), planBatchInputPartitions() etc. Since it uses different DataSourceReader instances,
@@ -87,6 +100,13 @@ public class HiveWarehouseDataSourceReader
     String whereClause = buildWhereClause(baseSchema, filterSeq);
     return selectProjectAliasFilter(selectCols, baseQuery, randomAlias(), whereClause);
   }
+
+  private String getCurrentSessionId() {
+    String sessionId = options.get(HiveWarehouseSessionImpl.HWC_SESSION_ID_KEY);
+    Preconditions.checkNotNull(sessionId,
+        "session id cannot be null, forgot to initialize HiveWarehouseSession???");
+    return sessionId;
+  }  
 
   private StatementType getQueryType() throws Exception {
     return StatementType.fromOptions(options);
@@ -177,18 +197,69 @@ public class HiveWarehouseDataSourceReader
       //numSplits arg not currently supported, use 1 as dummy arg
       InputSplit[] splits = llapInputFormat.getSplits(jobConf, 1);
       LOG.info("Number of splits generated: {}", splits.length);
-      for (InputSplit split : splits) {
-        tasks.add(getInputPartition(split, jobConf, getArrowAllocatorMax()));
+
+      if (splits.length > 2) {
+        commonBroadcastInfo = prepareCommonBroadcastInfo(splits);
+        LOG.info("Serializing {} actual splits to send to executors", (splits.length - 2));
+        long start = System.currentTimeMillis();
+        for (int i = 2; i < splits.length; i++) {
+          LlapInputSplit actualSplit = (LlapInputSplit) splits[i];
+          tasks.add(getHiveWarehouseInputPartition(actualSplit, jobConf, getArrowAllocatorMax(), commonBroadcastInfo));
+        }
+        long end = System.currentTimeMillis();
+        LOG.info("Serialized {} actual splits in {} millis", (splits.length - 2), (end - start));
+      } else {
+        LOG.warn("No actual splits generated for query: {}", query);
       }
     } catch (IOException e) {
       LOG.error("Unable to submit query to HS2");
       throw new RuntimeException(e);
+    } finally {
+      // add handle id for HiveWarehouseSessionImpl#close()
+      hwcResource = new HwcResource(options.get(JobUtil.LLAP_HANDLE_ID), commonBroadcastInfo);
+      HiveWarehouseSessionImpl.addResourceIdToSession(sessionId, hwcResource);
     }
     return tasks;
   }
 
-  protected HiveWarehouseInputPartition getInputPartition(InputSplit split, JobConf jobConf, long arrowAllocatorMax) {
-    return new HiveWarehouseInputPartition(split, jobConf, arrowAllocatorMax);
+  protected HiveWarehouseInputPartition getHiveWarehouseInputPartition(InputSplit split, JobConf jobConf,
+                                                                 long arrowAllocatorMax,
+                                                                 CommonBroadcastInfo commonBroadcastInfo) {
+    return new HiveWarehouseInputPartition(split, jobConf, arrowAllocatorMax, commonBroadcastInfo);
+  }
+
+  private CommonBroadcastInfo prepareCommonBroadcastInfo(InputSplit[] splits) {
+    SparkContext sparkContext = SparkSession.getActiveSession().get().sparkContext();
+
+    // populate actual splits with schema and planBytes[]
+    LlapInputSplit schemaSplit = (LlapInputSplit) splits[0];
+    LlapInputSplit planSplit = (LlapInputSplit) splits[1];
+
+    // Don't broadcast if splits have already been broadcast for some previous execution
+    if (commonBroadcastInfo != null
+        && commonBroadcastInfo.getSchemaSplit().isValid()
+        && commonBroadcastInfo.getPlanSplit().isValid()
+        && planSplit.equals(commonBroadcastInfo.getPlanSplit().getValue().getLlapInputSplit())
+        && schemaSplit.equals(commonBroadcastInfo.getSchemaSplit().getValue().getLlapInputSplit())) {
+      return commonBroadcastInfo;
+    }
+
+    Broadcast<SerializableLlapInputSplit> planSplitBroadcast =
+        broadcastSplit(sparkContext, planSplit);
+
+    Broadcast<SerializableLlapInputSplit> schemaSplitBroadcast =
+        broadcastSplit(sparkContext, schemaSplit);
+
+    CommonBroadcastInfo commonBroadcastInfo = new CommonBroadcastInfo();
+    commonBroadcastInfo.setSchemaSplit(schemaSplitBroadcast);
+    commonBroadcastInfo.setPlanSplit(planSplitBroadcast);
+
+    return commonBroadcastInfo;
+  }
+
+  private Broadcast<SerializableLlapInputSplit> broadcastSplit(SparkContext sparkContext, LlapInputSplit planSplit) {
+    return sparkContext.broadcast(new SerializableLlapInputSplit(planSplit),
+        SchemaUtil.classTag(SerializableLlapInputSplit.class));
   }
 
   private List<InputPartition<ColumnarBatch>> getCountStarInputPartitions(String query) {
@@ -196,7 +267,7 @@ public class HiveWarehouseDataSourceReader
     long count = getCount(query);
     String numTasksString = HWConf.COUNT_TASKS.getFromOptionsMap(options);
     int numTasks = Integer.parseInt(numTasksString);
-    long numPerTask = count/(numTasks - 1);
+    long numPerTask = count / (numTasks - 1);
     long numLastTask = count % (numTasks - 1);
     for(int i = 0; i < (numTasks - 1); i++) {
       tasks.add(new CountInputPartition(numPerTask));
@@ -206,7 +277,7 @@ public class HiveWarehouseDataSourceReader
   }
 
   protected long getCount(String query) {
-    try(Connection conn = getConnection()) {
+    try (Connection conn = getConnection()) {
       DriverResultSet rs = DefaultJDBCWrapper.executeStmt(conn, HWConf.DEFAULT_DB.getFromOptionsMap(options), query,
           Long.parseLong(HWConf.MAX_EXEC_RESULTS.getFromOptionsMap(options)));
       return rs.getData().get(0).getLong(0);
@@ -236,7 +307,7 @@ public class HiveWarehouseDataSourceReader
   public void close() {
     LOG.info("Closing resources for handleid: {}", options.get("handleid"));
     try {
-      LlapBaseInputFormat.close(options.get("handleid"));
+      HiveWarehouseSessionImpl.closeAndRemoveResourceFromSession(sessionId, hwcResource);
     } catch (IOException ioe) {
       throw new RuntimeException(ioe);
     }
