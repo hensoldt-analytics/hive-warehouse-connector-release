@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.Lists;
+import com.hortonworks.spark.sql.hive.llap.common.CommonBroadcastInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
@@ -50,12 +51,12 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
   public static class MockHiveWarehouseDataReader extends HiveWarehouseDataReader {
 
     public MockHiveWarehouseDataReader(LlapInputSplit split, JobConf conf, long arrowAllocatorMax) throws Exception {
-      super(split, conf, arrowAllocatorMax);
+      super(split, conf, arrowAllocatorMax, null);
     }
 
     @Override
     protected TaskAttemptID getTaskAttemptID(LlapInputSplit split, JobConf conf) throws IOException {
-      return new TaskAttemptID(); 
+      return new TaskAttemptID();
     }
 
     @Override
@@ -73,14 +74,14 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     @Override
     public DataReader<ColumnarBatch> createDataReader() {
       try {
-        return getDataReader(null, new JobConf(), Long.MAX_VALUE);
+        return getDataReader(null, new JobConf(), Long.MAX_VALUE, null);
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
     }
 
     @Override
-    protected DataReader<ColumnarBatch> getDataReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax)
+    protected DataReader<ColumnarBatch> getDataReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo)
         throws Exception {
       return new MockHiveWarehouseDataReader(split, jobConf, arrowAllocatorMax);
     }
@@ -98,7 +99,7 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     }
 
     @Override
-    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf, long arrowAllocatorMax) {
+    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
       return new MockHiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax);
     }
 
@@ -113,6 +114,46 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     }
 
   }
+
+  public static class MockHiveWarehouseDataSourceReaderForSpark23x extends HiveWarehouseDataSourceReaderForSpark23x {
+
+    public static final String FINAL_HIVE_QUERY_KEY = "FINAL_HIVE_QUERY";
+
+    public MockHiveWarehouseDataSourceReaderForSpark23x(Map<String, String> options) {
+      super(options);
+    }
+
+    @Override
+    protected StructType getTableSchema() {
+      return new StructType()
+          .add("col1", IntegerType)
+          .add("col2", StringType)
+          .add("col3", FloatType);
+    }
+
+    @Override
+    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf,
+                                                                    long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
+      return new MockHiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax);
+    }
+
+    protected List<DataReaderFactory<ColumnarBatch>> getSplitsFactories(String query) {
+      SparkSession.getActiveSession().get().conf().set(FINAL_HIVE_QUERY_KEY, query);
+      return Lists.newArrayList();
+    }
+
+    protected List<DataReaderFactory<ColumnarBatch>> getCountStarFactories(String query) {
+      SparkSession.getActiveSession().get().conf().set(FINAL_HIVE_QUERY_KEY, query);
+      return Lists.newArrayList();
+    }
+
+    @Override
+    protected long getCount(String query) {
+      //Mock out the call to HS2 to get the count
+      return COUNT_STAR_TEST_VALUE;
+    }
+  }
+
 
   public static class MockLlapArrowBatchRecordReader implements RecordReader<ArrowWrapperWritable, ArrowWrapperWritable> {
 
