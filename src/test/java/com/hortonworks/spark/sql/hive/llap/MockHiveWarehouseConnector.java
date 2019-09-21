@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.Lists;
+import com.hortonworks.spark.sql.hive.llap.common.CommonBroadcastInfo;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
@@ -49,7 +50,7 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
   public static class MockHiveWarehouseInputPartitionReader extends HiveWarehouseInputPartitionReader {
 
     public MockHiveWarehouseInputPartitionReader(LlapInputSplit split, JobConf conf, long arrowAllocatorMax) throws Exception {
-      super(split, conf, arrowAllocatorMax);
+      super(split, conf, arrowAllocatorMax, null);
     }
 
     @Override
@@ -72,14 +73,14 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     @Override
     public InputPartitionReader<ColumnarBatch> createPartitionReader() {
       try {
-        return getInputPartitionReader(null, new JobConf(), Long.MAX_VALUE);
+        return getInputPartitionReader(null, new JobConf(), Long.MAX_VALUE, null);
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
     }
 
     @Override
-    protected InputPartitionReader<ColumnarBatch> getInputPartitionReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax)
+    protected InputPartitionReader<ColumnarBatch> getInputPartitionReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo)
         throws Exception {
       return new MockHiveWarehouseInputPartitionReader(split, jobConf, arrowAllocatorMax);
     }
@@ -97,7 +98,7 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     }
 
     @Override
-    protected HiveWarehouseInputPartition getInputPartition(InputSplit split, JobConf jobConf, long arrowAllocatorMax) {
+    protected HiveWarehouseInputPartition getInputPartition(InputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
       return new MockHiveWarehouseInputPartition(split, jobConf, arrowAllocatorMax);
     }
 
