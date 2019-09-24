@@ -17,6 +17,7 @@
 
 package com.hortonworks.spark.sql.hive.llap;
 
+import com.hortonworks.hwc.HiveWarehouseSession;
 import org.apache.spark.sql.SparkSession;
 import org.junit.After;
 import org.junit.Before;
@@ -42,6 +43,16 @@ class HiveWarehouseBuilderTest extends SessionTestBase {
                 .maxExecResults(TEST_EXEC_RESULTS_MAX)
                 .defaultDB(TEST_DEFAULT_DB).build();
         assertEquals(hive.session(), session);
+    }
+
+    @Test
+    void testExposedConstantsAndValues() {
+        assertEquals(HiveWarehouseSession.HIVE_WAREHOUSE_CONNECTOR,
+            "com.hortonworks.spark.sql.hive.llap.HiveWarehouseConnector");
+        assertEquals(HiveWarehouseSession.DATAFRAME_TO_STREAM,
+            "com.hortonworks.spark.sql.hive.llap.HiveStreamingDataSource");
+        assertEquals(HiveWarehouseSession.STREAM_TO_STREAM,
+            "com.hortonworks.spark.sql.hive.llap.streaming.HiveStreamingDataSource");
     }
 
     @Test
