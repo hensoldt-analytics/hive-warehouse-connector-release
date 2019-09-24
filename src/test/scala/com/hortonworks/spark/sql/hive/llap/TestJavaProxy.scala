@@ -34,6 +34,7 @@ class TestJavaProxy extends FunSuite {
     withSetUpAndTearDown(test, test.testNewEntryPoint)
     withSetUpAndTearDown(test, test.testAllBuilderConfig)
     withSetUpAndTearDown(test, test.testAllConfConfig)
+    withSetUpAndTearDown(test, test.testExposedConstantsAndValues)
   }
 
   test("HiveWarehouseSessionHiveQlTest") {

@@ -21,9 +21,9 @@ import com.hortonworks.spark.sql.hive.llap.HiveWarehouseBuilder;
 import org.apache.spark.sql.SparkSession;
 
 public abstract class HiveWarehouseSession implements com.hortonworks.spark.sql.hive.llap.HiveWarehouseSession {
-    String HIVE_WAREHOUSE_CONNECTOR = "com.hortonworks.spark.sql.hive.llap.HiveWarehouseConnector";
-    String DATAFRAME_TO_STREAM = "com.hortonworks.spark.sql.hive.llap.HiveStreamingDataSource";
-    String STREAM_TO_STREAM = "com.hortonworks.spark.sql.hive.llap.streaming.HiveStreamingDataSource";
+    public static final String HIVE_WAREHOUSE_CONNECTOR = "com.hortonworks.spark.sql.hive.llap.HiveWarehouseConnector";
+    public static final String DATAFRAME_TO_STREAM = "com.hortonworks.spark.sql.hive.llap.HiveStreamingDataSource";
+    public static final String STREAM_TO_STREAM = "com.hortonworks.spark.sql.hive.llap.streaming.HiveStreamingDataSource";
 
     public static HiveWarehouseBuilder session(SparkSession session) {
         return HiveWarehouseBuilder.session(session);
