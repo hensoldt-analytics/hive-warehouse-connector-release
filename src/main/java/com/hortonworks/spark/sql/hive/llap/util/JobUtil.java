@@ -1,22 +1,21 @@
 package com.hortonworks.spark.sql.hive.llap.util;
 
 import com.hortonworks.spark.sql.hive.llap.HWConf;
-import com.hortonworks.spark.sql.hive.llap.HiveWarehouseDataSourceReader;
-import com.hortonworks.spark.sql.hive.llap.Utils;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.spark.SparkContext;
-
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.util.Enumeration;
-import java.util.Map;
-import java.util.UUID;
-
 import org.apache.spark.TaskContext;
 import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.util.Enumeration;
+import java.util.Map;
+import java.util.UUID;
 
 public class JobUtil {
 
@@ -44,6 +43,18 @@ public class JobUtil {
     jobConf.set("llap.if.use.new.split.format", "true");
 
     return jobConf;
+  }
+
+
+  public static byte[] serializeJobConf(JobConf jobConf) throws IOException {
+    // on local, jobConf serialized byte[] was around around 84kb
+    // let's keep it 200_000 to prevent multiple array copies.
+    ByteArrayOutputStream confByteArrayStream = new ByteArrayOutputStream(200_000);
+
+    try (DataOutputStream confByteData = new DataOutputStream(confByteArrayStream)) {
+      jobConf.write(confByteData);
+    }
+    return confByteArrayStream.toByteArray();
   }
 
   public static String getSqlExecutionIdAtDriver() {

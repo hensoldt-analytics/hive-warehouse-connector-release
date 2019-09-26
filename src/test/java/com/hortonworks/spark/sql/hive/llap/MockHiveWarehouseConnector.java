@@ -95,6 +95,10 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     public MockHiveWarehouseDataReaderFactory(InputSplit split, JobConf jobConf, long arrowAllocatorMax) {
     }
 
+    public MockHiveWarehouseDataReaderFactory(InputSplit split, byte[] serializedJobConf, long arrowAllocatorMax) {
+
+    }
+
     @Override
     public DataReader<ColumnarBatch> createDataReader() {
       try {
@@ -123,12 +127,12 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     }
 
     @Override
-    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
-      return new MockHiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax);
+    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, byte[] serializedJobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
+      return new MockHiveWarehouseDataReaderFactory(split, serializedJobConf, arrowAllocatorMax);
     }
 
     protected List<DataReaderFactory<ColumnarBatch>> getSplitsFactories(String query) {
-      return Lists.newArrayList(new MockHiveWarehouseDataReaderFactory(null, null, 0));
+      return Lists.newArrayList(new MockHiveWarehouseDataReaderFactory(null, (JobConf) null, 0));
     }
 
     @Override
@@ -156,9 +160,9 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
     }
 
     @Override
-    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf,
+    protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, byte[] serializedJobConf,
                                                                     long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
-      return new MockHiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax);
+      return new MockHiveWarehouseDataReaderFactory(split, serializedJobConf, arrowAllocatorMax);
     }
 
     protected List<DataReaderFactory<ColumnarBatch>> getSplitsFactories(String query) {
