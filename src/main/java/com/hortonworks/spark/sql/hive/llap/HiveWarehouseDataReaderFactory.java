@@ -24,20 +24,18 @@ public class HiveWarehouseDataReaderFactory implements DataReaderFactory<Columna
     public HiveWarehouseDataReaderFactory() {}
 
     //Driver-side setup
-    public HiveWarehouseDataReaderFactory(InputSplit split, JobConf conf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
+    public HiveWarehouseDataReaderFactory(InputSplit split, byte[] serializedJobConf, long arrowAllocatorMax,
+                                          CommonBroadcastInfo commonBroadcastInfo) {
         this.split = split;
         this.arrowAllocatorMax = arrowAllocatorMax;
         this.commonBroadcastInfo = commonBroadcastInfo;
+        this.confBytes = serializedJobConf;
         ByteArrayOutputStream splitByteArrayStream = new ByteArrayOutputStream();
-        ByteArrayOutputStream confByteArrayStream = new ByteArrayOutputStream();
 
-        try(DataOutputStream splitByteData = new DataOutputStream(splitByteArrayStream);
-            DataOutputStream confByteData = new DataOutputStream(confByteArrayStream)) {
-            //Serialize split and conf for executors
+        try(DataOutputStream splitByteData = new DataOutputStream(splitByteArrayStream)) {
+            //Serialize split for executors
             split.write(splitByteData);
             splitBytes = splitByteArrayStream.toByteArray();
-            conf.write(confByteData);
-            confBytes = confByteArrayStream.toByteArray();
         } catch(Exception e) {
             throw new RuntimeException(e);
         }

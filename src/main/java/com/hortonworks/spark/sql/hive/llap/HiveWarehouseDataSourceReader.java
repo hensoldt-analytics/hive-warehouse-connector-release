@@ -179,10 +179,12 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
       if (splits.length > 2) {
         commonBroadcastInfo = prepareCommonBroadcastInfo(splits);
         LOG.info("Serializing {} actual splits to send to executors", (splits.length - 2));
+        byte[] serializedJobConf = JobUtil.serializeJobConf(jobConf);
+
         long start = System.currentTimeMillis();
         for (int i = 2; i < splits.length; i++) {
           LlapInputSplit actualSplit = (LlapInputSplit) splits[i];
-          tasks.add(getDataReaderFactory(actualSplit, jobConf, getArrowAllocatorMax(), commonBroadcastInfo));
+          tasks.add(getDataReaderFactory(actualSplit, serializedJobConf, getArrowAllocatorMax(), commonBroadcastInfo));
         }
         long end = System.currentTimeMillis();
         LOG.info("Serialized {} actual splits in {} millis", (splits.length - 2), (end - start));
@@ -234,10 +236,10 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
         SchemaUtil.classTag(SerializableLlapInputSplit.class));
   }
 
-  protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, JobConf jobConf,
+  protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, byte[] serializedJobConf,
                                                                   long arrowAllocatorMax,
                                                                   CommonBroadcastInfo commonBroadcastInfo) {
-    return new HiveWarehouseDataReaderFactory(split, jobConf, arrowAllocatorMax, commonBroadcastInfo);
+    return new HiveWarehouseDataReaderFactory(split, serializedJobConf, arrowAllocatorMax, commonBroadcastInfo);
   }
 
   protected List<DataReaderFactory<ColumnarBatch>> getCountStarFactories(String query) {
