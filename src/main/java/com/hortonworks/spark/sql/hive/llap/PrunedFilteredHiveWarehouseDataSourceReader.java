@@ -22,51 +22,22 @@ import org.apache.spark.sql.sources.v2.reader.SupportsPushDownFilters;
 import org.apache.spark.sql.sources.v2.reader.SupportsPushDownRequiredColumns;
 import org.apache.spark.sql.types.StructType;
 
-import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map;
 
 /**
  * PrunedFilteredHiveWarehouseDataSourceReader implements interfaces needed for pushdowns and pruning.
  */
 public class PrunedFilteredHiveWarehouseDataSourceReader
-    extends HiveWarehouseDataSourceReader
-    implements SupportsPushDownRequiredColumns, SupportsPushDownFilters {
+    extends HiveWarehouseDataSourceReaderWithFilterPushDown
+    implements SupportsPushDownRequiredColumns {
 
-  //Pushed down filters
-  //
-  //"It's possible that there is no filters in the query and pushFilters(Filter[])
-  // is never called, empty array should be returned for this case."
-  Filter[] pushedFilters = new Filter[0];
-
-  public PrunedFilteredHiveWarehouseDataSourceReader(Map<String, String> options) throws IOException {
+  public PrunedFilteredHiveWarehouseDataSourceReader(Map<String, String> options) {
     super(options);
-  }
-
-  @Override
-  public Filter[] pushFilters(Filter[] filters) {
-    pushedFilters = Arrays.stream(filters).
-        filter((filter) -> FilterPushdown.buildFilterExpression(baseSchema, filter).isDefined()).
-        toArray(Filter[]::new);
-
-    return Arrays.stream(filters).
-        filter((filter) -> !FilterPushdown.buildFilterExpression(baseSchema, filter).isDefined()).
-        toArray(Filter[]::new);
-  }
-
-  @Override
-  public Filter[] pushedFilters() {
-    return pushedFilters;
   }
 
   @Override
   public void pruneColumns(StructType requiredSchema) {
     this.schema = requiredSchema;
-  }
-
-  @Override
-  public Filter[] getPushedFilters() {
-    return pushedFilters;
   }
 
 }

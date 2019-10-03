@@ -2,6 +2,7 @@ package com.hortonworks.spark.sql.hive.llap;
 
 import com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil.ExecutionMethod;
 import org.apache.spark.sql.Row;
+import org.junit.Before;
 import org.junit.Test;
 
 import static com.hortonworks.spark.sql.hive.llap.TestSecureHS2Url.TEST_HS2_URL;
@@ -10,6 +11,14 @@ import static com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil.resolv
 import static org.junit.Assert.assertEquals;
 
 public class TestReadSupport extends SessionTestBase {
+
+  @Override
+  @Before
+  public void setUp() {
+    super.setUp();
+    // set it to false here since default behavior is true since BUG-121727
+    session.conf().set(HWConf.USE_SPARK23X_SPECIFIC_READER.getQualifiedKey(), false);
+  }
 
   @Test
   public void testReadSupport() {
