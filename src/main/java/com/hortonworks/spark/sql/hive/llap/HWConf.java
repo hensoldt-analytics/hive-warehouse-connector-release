@@ -20,6 +20,7 @@ package com.hortonworks.spark.sql.hive.llap;
 import java.util.Map;
 import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.sql.RuntimeConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,6 +63,7 @@ public enum HWConf {
   public static final String HIVESERVER2_CREDENTIAL_ENABLED = "spark.security.credentials.hiveserver2.enabled";
   public static final String HIVESERVER2_JDBC_URL_PRINCIPAL = "spark.sql.hive.hiveserver2.jdbc.url.principal";
   public static final String HIVESERVER2_JDBC_URL = "spark.sql.hive.hiveserver2.jdbc.url";
+  public static final String HIVESERVER2_JDBC_URL_CONF_LIST = "spark.sql.hive.conf.list";
   //possible values - client/cluster. default - client
   public static final String SPARK_SUBMIT_DEPLOYMODE = "spark.submit.deployMode";
   public static final String PARTITION_OPTION_KEY = "partition";
@@ -136,24 +138,32 @@ public enum HWConf {
    public static String getConnectionUrlFromConf(HiveWarehouseSessionState state) {
      SparkSession sparkSession = state.session;
      RuntimeConfig conf = sparkSession.conf();
+     StringBuilder jdbcUrl = new StringBuilder();
      if ((conf.contains(HIVESERVER2_CREDENTIAL_ENABLED) && conf.get(HIVESERVER2_CREDENTIAL_ENABLED).equals("true"))
          || conf.contains(HIVESERVER2_JDBC_URL_PRINCIPAL)) {
        String deployMode = conf.get(SPARK_SUBMIT_DEPLOYMODE, "client");
        LOG.debug("Getting jdbc connection url for kerberized cluster with spark.submit.deployMode = {}", deployMode);
        if (deployMode.equals("cluster")) {
          // 1. YARN Cluster mode for kerberized clusters
-         return format("%s;auth=delegationToken", conf.get(HIVESERVER2_JDBC_URL));
+         jdbcUrl.append(format("%s;auth=delegationToken", conf.get(HIVESERVER2_JDBC_URL)));
        } else {
          // 2. YARN Client mode for kerberized clusters
-         return format("%s;principal=%s",
+         jdbcUrl.append(format("%s;principal=%s",
              conf.get(HIVESERVER2_JDBC_URL),
-             conf.get(HIVESERVER2_JDBC_URL_PRINCIPAL));
+             conf.get(HIVESERVER2_JDBC_URL_PRINCIPAL)));
        }
      } else {
        LOG.debug("Getting jdbc connection url for non-kerberized cluster");
        // 3. For non-kerberized cluster
-       return conf.get(HIVESERVER2_JDBC_URL);
+       jdbcUrl.append(conf.get(HIVESERVER2_JDBC_URL));
      }
+
+     if (conf.contains(HIVESERVER2_JDBC_URL_CONF_LIST) &&
+         StringUtils.isNotBlank(conf.get(HIVESERVER2_JDBC_URL_CONF_LIST))) {
+       jdbcUrl.append("?").append(conf.get(HIVESERVER2_JDBC_URL_CONF_LIST));
+     }
+
+     return jdbcUrl.toString();
    }
 
 }
