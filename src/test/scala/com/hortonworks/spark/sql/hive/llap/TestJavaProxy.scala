@@ -58,6 +58,9 @@ class TestJavaProxy extends FunSuite {
     withSetUpAndTearDown(test, test.kerberizedClusterMode)
     withSetUpAndTearDown(test, test.kerberizedClientMode)
     withSetUpAndTearDown(test, test.nonKerberized)
+    withSetUpAndTearDown(test, test.nonKerberizedWithConfList)
+    withSetUpAndTearDown(test, test.kerberizedClientModeWithConfList)
+    withSetUpAndTearDown(test, test.kerberizedClusterModeWithConfList)
   }
 
   test("TestWriteSupport") {
