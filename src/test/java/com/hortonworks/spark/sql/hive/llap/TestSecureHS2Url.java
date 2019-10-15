@@ -1,9 +1,7 @@
 package com.hortonworks.spark.sql.hive.llap;
 
-import org.apache.spark.sql.SparkSession;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
+
 import static org.junit.Assert.assertEquals;
 
 public class TestSecureHS2Url extends SessionTestBase {
@@ -16,6 +14,9 @@ public class TestSecureHS2Url extends SessionTestBase {
       TEST_HS2_URL +
           ";principal=" +
           TEST_PRINCIPAL;
+
+  static final String HIVE_CONF_LIST =
+      "hive.vectorized.execution.filesink.arrow.native.enabled=true;hive.vectorized.execution.enabled=true";
 
   @Test
   public void kerberizedClusterMode() {
@@ -56,6 +57,42 @@ public class TestSecureHS2Url extends SessionTestBase {
 
     String resolvedUrl = HWConf.RESOLVED_HS2_URL.getString(state);
     assertEquals(resolvedUrl, TEST_HS2_URL);
+  }
+
+  @Test
+  public void nonKerberizedWithConfList() {
+    session.conf().set(HWConf.HIVESERVER2_JDBC_URL_CONF_LIST, HIVE_CONF_LIST);
+    session.conf().set(HWConf.HIVESERVER2_CREDENTIAL_ENABLED, "false");
+    verifyResolvedUrl(TEST_HS2_URL + "?" + HIVE_CONF_LIST);
+  }
+
+  @Test
+  public void kerberizedClientModeWithConfList() {
+    session.conf().set(HWConf.HIVESERVER2_JDBC_URL_CONF_LIST, HIVE_CONF_LIST);
+    session.conf().set(HWConf.HIVESERVER2_CREDENTIAL_ENABLED, "true");
+    session.conf().set(HWConf.HIVESERVER2_JDBC_URL_PRINCIPAL, TEST_PRINCIPAL);
+    verifyResolvedUrl(KERBERIZED_CLIENT_MODE_URL + "?" + HIVE_CONF_LIST);
+  }
+
+  @Test
+  public void kerberizedClusterModeWithConfList() {
+    session.conf().set(HWConf.SPARK_SUBMIT_DEPLOYMODE, "cluster");
+    session.conf().set(HWConf.HIVESERVER2_JDBC_URL_CONF_LIST, HIVE_CONF_LIST);
+    session.conf().set(HWConf.HIVESERVER2_CREDENTIAL_ENABLED, "true");
+
+    verifyResolvedUrl(KERBERIZED_CLUSTER_MODE_URL + "?" + HIVE_CONF_LIST);
+  }
+
+
+  private void verifyResolvedUrl(String expectedUrl) {
+    HiveWarehouseSessionState state = HiveWarehouseBuilder
+        .session(session)
+        .hs2url(TEST_HS2_URL)
+        .build()
+        .sessionState;
+
+    String resolvedUrl = HWConf.RESOLVED_HS2_URL.getString(state);
+    assertEquals(resolvedUrl, expectedUrl);
   }
 
 }
