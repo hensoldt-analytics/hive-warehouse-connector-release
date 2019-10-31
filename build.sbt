@@ -10,12 +10,12 @@ organization := "com.hortonworks.hive"
 scalaVersion := "2.11.8"
 val scalatestVersion = "2.2.6"
 
-sparkVersion := sys.props.getOrElse("spark.version", "2.3.0")
+sparkVersion := sys.props.getOrElse("spark.version", "2.3.2.3.1.4.0-315")
 
-val hadoopVersion = sys.props.getOrElse("hadoop.version", "3.0.0")
-val hiveVersion = sys.props.getOrElse("hive.version", "3.0.0")
+val hadoopVersion = sys.props.getOrElse("hadoop.version", "3.1.1.3.1.4.0-315")
+val hiveVersion = sys.props.getOrElse("hive.version", "3.1.0.3.1.4.0-315")
 val log4j2Version = sys.props.getOrElse("log4j2.version", "2.4.1")
-val tezVersion = sys.props.getOrElse("tez.version", "0.9.1")
+val tezVersion = sys.props.getOrElse("tez.version", "0.9.1.3.1.4.0-315")
 val thriftVersion = sys.props.getOrElse("thrift.version", "0.9.3-1")
 val repoUrl = sys.props.getOrElse("repourl", "https://repo1.maven.org/maven2/")
 
@@ -41,10 +41,10 @@ libraryDependencies ++= Seq(
     .exclude("org.apache.hive", "hive-service"),
   "org.apache.spark" %% "spark-yarn" % testSparkVersion.value % "provided" force(),
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.5" % "compile",
-  "jline" % "jline" % "2.12.1" % "compile",
 
   "org.scala-lang" % "scala-library" % scalaVersion.value % "provided",
   "org.scalatest" %% "scalatest" % scalatestVersion % "test",
+  "org.apache.commons" % "commons-collections4" % "4.2" % "compile",
 
   ("org.apache.hadoop" % "hadoop-mapreduce-client-core" % hadoopVersion % "provided")
     .exclude("com.fasterxml.jackson.core", "jackson-databind")
@@ -54,6 +54,8 @@ libraryDependencies ++= Seq(
     .exclude("commons-beanutils", "commons-beanutils-core")
     .exclude("commons-collections", "commons-collections")
     .exclude("commons-logging", "commons-logging"),
+
+  ("org.apache.hadoop" % "hadoop-hdfs" % hadoopVersion % "provided"),
 
   ("org.apache.hadoop" % "hadoop-yarn-registry" % hadoopVersion % "provided")
     .exclude("com.fasterxml.jackson.core", "jackson-databind")
@@ -76,16 +78,82 @@ libraryDependencies ++= Seq(
     .exclude("org.apache.hadoop", "hadoop-auth")
     .exclude("org.apache.hadoop", "hadoop-hdfs")
     .exclude("com.fasterxml.jackson.core", "jackson-databind"),
-  ("org.apache.hive" % "hive-service" % hiveVersion)
-    .exclude("org.apache.hadoop", "hadoop-aws")
-    .exclude("org.apache.logging.log4j", "log4j-slf4j-impl")
-    .exclude("com.fasterxml.jackson.core", "jackson-databind")
-    .exclude("org.apache.hadoop", "hadoop-aws"),
+  ("org.apache.hive" % "hive-service" % hiveVersion).intransitive(),
   ("org.apache.hive" % "hive-llap-ext-client" % hiveVersion)
     .exclude("ant", "ant")
     .exclude("org.apache.ant", "ant")
     .exclude("org.apache.avro", "avro")
-    .exclude("org.apache.curator", "apache-curator")
+    .exclude("org.apache.calcite", "*")
+    .exclude("com.fasterxml.jackson.core", "*")
+    .exclude("org.antlr", "*")
+    //.exclude("org.apache.curator", "apache-curator")
+    .exclude("org.apache.logging.log4j", "log4j-1.2-api")
+    .exclude("org.apache.logging.log4j", "log4j-slf4j-impl")
+    .exclude("org.apache.logging.log4j", "log4j-web")
+    .exclude("org.apache.slider", "slider-core")
+    .exclude("stax", "stax-api")
+    .exclude("javax.servlet", "jsp-api")
+    .exclude("javax.servlet", "servlet-api")
+    .exclude("javax.servlet.jsp", "jsp-api")
+    .exclude("javax.transaction", "jta")
+    .exclude("javax.transaction", "transaction-api")
+    .exclude("org.eclipse.jetty", "jetty-annotations")
+    .exclude("org.eclipse.jetty", "jetty-runner")
+    .exclude("org.eclipse.jetty", "jetty-xml")
+    .exclude("org.mortbay.jetty", "jetty")
+    .exclude("org.mortbay.jetty", "jetty-util")
+    .exclude("org.mortbay.jetty", "jetty-sslengine")
+    .exclude("org.mortbay.jetty", "jsp-2.1")
+    .exclude("org.mortbay.jetty", "jsp-api-2.1")
+    .exclude("org.mortbay.jetty", "servlet-api-2.5")
+    .exclude("org.datanucleus", "datanucleus-api-jdo")
+    .exclude("org.datanucleus", "datanucleus-core")
+    .exclude("org.datanucleus", "datanucleus-rdbms")
+    .exclude("org.datanucleus", "javax.jdo")
+    .exclude("org.apache.hadoop", "hadoop-client")
+    .exclude("org.apache.hadoop", "hadoop-mapreduce-client-app")
+    .exclude("org.apache.hadoop", "hadoop-mapreduce-client-common")
+    .exclude("org.apache.hadoop", "hadoop-mapreduce-client-shuffle")
+    .exclude("org.apache.hadoop", "hadoop-mapreduce-client-jobclient")
+    .exclude("org.apache.hadoop", "hadoop-distcp")
+    .exclude("org.apache.hadoop", "hadoop-yarn-server-resourcemanager")
+    .exclude("org.apache.hadoop", "hadoop-yarn-registry")
+    .exclude("org.apache.hadoop", "hadoop-yarn-server-common")
+    .exclude("org.apache.hadoop", "hadoop-yarn-server-applicationhistoryservice")
+    .exclude("org.apache.hadoop", "hadoop-yarn-server-web-proxy")
+    .exclude("org.apache.hadoop", "hadoop-common")
+    .exclude("org.apache.hadoop", "hadoop-hdfs")
+    .exclude("org.apache.hive", "hive-exec")
+    .exclude("org.apache.hive", "hive-shims")
+    .exclude("org.apache.hive", "hive-llap-tez")
+    .exclude("org.apache.hive", "hive-storage-api")
+    .exclude("org.apache.hive", "hive-common")
+    .exclude("org.apache.hive", "hive-serde")
+    .exclude("org.apache.hive", "hive-service-rpc")
+    .exclude("org.apache.hive", "hive-service")
+    .exclude("org.apache.hive", "hive-metastore")
+    .exclude("org.apache.hive", "hive-standalone-metastore")
+    .exclude("org.apache.hive", "hive-vector-code-gen")
+    .exclude("com.github.joshelser", "*")
+    .exclude("org.apache.hbase", "*")
+    .exclude("commons-beanutils", "commons-beanutils-core")
+    .exclude("commons-collections", "commons-collections")
+    .exclude("commons-logging", "commons-logging")
+    .exclude("io.netty", "netty-buffer")
+    .exclude("io.netty", "netty-common")
+    .exclude("com.fasterxml.jackson.core", "jackson-databind")
+    .exclude("org.apache.arrow", "arrow-vector")
+    .exclude("org.apache.arrow", "arrow-format")
+    .exclude("org.apache.arrow", "arrow-memory"),
+  ("org.apache.hive" % "hive-standalone-metastore" % hiveVersion)
+    .exclude("com.github.joshelser", "*"),
+  //Use ParserUtils to validate generated HiveQl strings in tests
+  ("org.apache.hive" % "hive-exec" % hiveVersion)
+    .exclude("ant", "ant")
+    .exclude("com.fasterxml.jackson.core", "jackson-databind")
+    .exclude("org.apache.ant", "ant")
+    .exclude("org.apache.avro", "avro")
+    //.exclude("org.apache.curator", "apache-curator")
     .exclude("org.apache.logging.log4j", "log4j-1.2-api")
     .exclude("org.apache.logging.log4j", "log4j-slf4j-impl")
     .exclude("org.apache.logging.log4j", "log4j-web")
@@ -127,62 +195,10 @@ libraryDependencies ++= Seq(
     .exclude("commons-logging", "commons-logging")
     .exclude("io.netty", "netty-buffer")
     .exclude("io.netty", "netty-common")
-    .exclude("com.fasterxml.jackson.core", "jackson-databind")
     .exclude("org.apache.arrow", "arrow-vector")
     .exclude("org.apache.arrow", "arrow-format")
     .exclude("org.apache.arrow", "arrow-memory"),
-//Use ParserUtils to validate generated HiveQl strings in tests
-  ("org.apache.hive" % "hive-exec" % hiveVersion % "test")
-    .exclude("ant", "ant")
-    .exclude("com.fasterxml.jackson.core", "jackson-databind")
-    .exclude("org.apache.ant", "ant")
-    .exclude("org.apache.avro", "avro")
-    .exclude("org.apache.curator", "apache-curator")
-    .exclude("org.apache.logging.log4j", "log4j-1.2-api")
-    .exclude("org.apache.logging.log4j", "log4j-slf4j-impl")
-    .exclude("org.apache.logging.log4j", "log4j-web")
-    .exclude("org.apache.slider", "slider-core")
-    .exclude("stax", "stax-api")
-    .exclude("javax.servlet", "jsp-api")
-    .exclude("javax.servlet", "servlet-api")
-    .exclude("javax.servlet.jsp", "jsp-api")
-    .exclude("javax.transaction", "jta")
-    .exclude("javax.transaction", "transaction-api")
-    .exclude("org.eclipse.jetty", "jetty-annotations")
-    .exclude("org.eclipse.jetty", "jetty-runner")
-    .exclude("org.eclipse.jetty", "jetty-xml")
-    .exclude("org.mortbay.jetty", "jetty")
-    .exclude("org.mortbay.jetty", "jetty-util")
-    .exclude("org.mortbay.jetty", "jetty-sslengine")
-    .exclude("org.mortbay.jetty", "jsp-2.1")
-    .exclude("org.mortbay.jetty", "jsp-api-2.1")
-    .exclude("org.mortbay.jetty", "servlet-api-2.5")
-    .exclude("org.datanucleus", "datanucleus-api-jdo")
-    .exclude("org.datanucleus", "datanucleus-core")
-    .exclude("org.datanucleus", "datanucleus-rdbms")
-    .exclude("org.datanucleus", "javax.jdo")
-    .exclude("org.apache.hadoop", "hadoop-client")
-    .exclude("org.apache.hadoop", "hadoop-mapreduce-client-app")
-    .exclude("org.apache.hadoop", "hadoop-mapreduce-client-common")
-    .exclude("org.apache.hadoop", "hadoop-mapreduce-client-shuffle")
-    .exclude("org.apache.hadoop", "hadoop-mapreduce-client-jobclient")
-    .exclude("org.apache.hadoop", "hadoop-distcp")
-    .exclude("org.apache.hadoop", "hadoop-yarn-server-resourcemanager")
-    .exclude("org.apache.hadoop", "hadoop-yarn-server-common")
-    .exclude("org.apache.hadoop", "hadoop-yarn-server-applicationhistoryservice")
-    .exclude("org.apache.hadoop", "hadoop-yarn-server-web-proxy")
-    .exclude("org.apache.hadoop", "hadoop-common")
-    .exclude("org.apache.hadoop", "hadoop-hdfs")
-    .exclude("org.apache.hbase", "*")
-    .exclude("commons-beanutils", "commons-beanutils-core")
-    .exclude("commons-collections", "commons-collections")
-    .exclude("commons-logging", "commons-logging") 
-    .exclude("io.netty", "netty-buffer")
-    .exclude("io.netty", "netty-common")
-    .exclude("org.apache.arrow", "arrow-vector")
-    .exclude("org.apache.arrow", "arrow-format")
-    .exclude("org.apache.arrow", "arrow-memory"),
-  ("org.apache.hive" % "hive-streaming" % hiveVersion)
+  ("org.apache.hive" % "hive-streaming" % hiveVersion).intransitive()
     .exclude("ant", "ant")
     .exclude("org.apache.ant", "ant")
     .exclude("org.apache.avro", "avro")
@@ -228,7 +244,24 @@ libraryDependencies ++= Seq(
     .exclude("org.apache.commons", "commons-lang3")
     .exclude("org.apache.calcite", "calcite-core")
 )
-excludeDependencies += "commons-cli" % "commons-cli"
+
+libraryDependencies += "org.apache.logging.log4j" % "log4j-core" % "2.8.2" % "test"
+libraryDependencies += "org.apache.logging.log4j" % "log4j-api" % "2.8.2" % "test"
+libraryDependencies += "io.dropwizard.metrics" % "metrics-core" % "3.1.5" % "test"
+dependencyOverrides += "com.fasterxml.jackson.core" % "jackson-core" % "2.9.0" % "test"
+dependencyOverrides += "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.0" % "test"
+dependencyOverrides += "com.fasterxml.jackson.module" % "jackson-module-scala_2.11" % "2.9.0" % "test"
+
+
+excludeDependencies ++= Seq(
+  "commons-cli" % "commons-cli",
+  "org.apache.calcite" % "*",
+  "org.apache.hive.shims" % "*",
+  "org.eclipse.jetty" % "*",
+  "org.apache.hive" % "hive-llap-tez",
+  "com.sun.jersey" % "*",
+  "org.codehaus.groovy" % "*"
+)
 dependencyOverrides += "com.google.guava" % "guava" % "28.0-jre"
 dependencyOverrides += "commons-codec" % "commons-codec" % "1.10"
 dependencyOverrides += "commons-logging" % "commons-logging" % "1.2"
@@ -264,7 +297,12 @@ assemblyShadeRules in assembly := Seq(
   ShadeRule.rename("org.apache.curator.**" -> "shadecurator.@0").inAll,
   ShadeRule.rename("org.apache.orc.**" -> "shadeorc@0").inAll,
   ShadeRule.rename("org.apache.derby.**" -> "shadederby.@0").inAll,
-  ShadeRule.rename("io.netty.**" -> "shadenetty.@0").inAll
+  ShadeRule.rename("io.netty.**" -> "shadenetty.@0").inAll,
+  ShadeRule.rename("org.jboss.netty.**" -> "shadejbossnetty.@0").inAll,
+  ShadeRule.rename("org.codehaus.jackson.**" -> "shadejackson.@0").inAll,
+  ShadeRule.rename("com.fasterxml.**" -> "shadefasterxml.@0").inAll,
+  ShadeRule.rename("org.glassfish.jersey.**" -> "shadejersey.@0").inAll,
+  ShadeRule.rename("com.sun.jersey.**" -> "shadesunjersey.@0").inAll
 )
 test in assembly := {}
 
@@ -378,22 +416,22 @@ publishMavenStyle := true
 pomIncludeRepository := { _ => false } // Remove repositories from pom
 pomExtra := (
   <url>https://github.com/hortonworks-spark/spark-llap/</url>
-  <licenses>
-    <license>
-      <name>Apache 2.0 License</name>
-      <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
-      <distribution>repo</distribution>
-    </license>
-  </licenses>
-  <scm>
-    <connection>scm:git:git@github.com:hortonworks-spark/spark-llap.git</connection>
-    <url>scm:git:git@github.com:hortonworks-spark/spark-llap.git</url>
-    <tag>HEAD</tag>
-  </scm>
-  <issueManagement>
-    <system>GitHub</system>
-    <url>https://github.com/hortonworks-spark/spark-llap/issues</url>
-  </issueManagement>)
+    <licenses>
+      <license>
+        <name>Apache 2.0 License</name>
+        <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
+        <distribution>repo</distribution>
+      </license>
+    </licenses>
+    <scm>
+      <connection>scm:git:git@github.com:hortonworks-spark/spark-llap.git</connection>
+      <url>scm:git:git@github.com:hortonworks-spark/spark-llap.git</url>
+      <tag>HEAD</tag>
+    </scm>
+    <issueManagement>
+      <system>GitHub</system>
+      <url>https://github.com/hortonworks-spark/spark-llap/issues</url>
+    </issueManagement>)
 publishArtifact in Test := false
 
 val username = sys.props.getOrElse("user", "user")
