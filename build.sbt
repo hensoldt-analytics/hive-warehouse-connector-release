@@ -282,6 +282,9 @@ assemblyMergeStrategy in assembly := {
   case PathList("git.properties") => MergeStrategy.first
   case PathList("META-INF", "services", "org.apache.hadoop.fs.FileSystem") => MergeStrategy.discard
   case x if x.endsWith("package-info.class") => MergeStrategy.first
+  // Need to include all the implementations of TokenIdentifier
+  // See https://hortonworks.jira.com/browse/BUG-122211 for more details
+  case PathList("META-INF", "services", "org.apache.hadoop.security.token.TokenIdentifier") => MergeStrategy.filterDistinctLines
   case PathList("META-INF", "services", xs @ _*) => MergeStrategy.first
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
   case x => MergeStrategy.first
