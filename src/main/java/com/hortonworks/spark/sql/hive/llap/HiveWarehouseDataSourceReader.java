@@ -202,7 +202,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
     return tasks;
   }
 
-  private CommonBroadcastInfo prepareCommonBroadcastInfo(InputSplit[] splits) {
+  protected CommonBroadcastInfo prepareCommonBroadcastInfo(InputSplit[] splits) {
     SparkContext sparkContext = SparkSession.getActiveSession().get().sparkContext();
 
     // populate actual splits with schema and planBytes[]
