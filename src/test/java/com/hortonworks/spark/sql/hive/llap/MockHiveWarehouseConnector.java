@@ -16,11 +16,13 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.llap.LlapInputSplit;
+import org.apache.hadoop.hive.llap.Schema;
 import org.apache.hadoop.hive.ql.io.arrow.ArrowWrapperWritable;
 import org.apache.hadoop.hive.ql.io.arrow.RootAllocatorFactory;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.mapred.SplitLocationInfo;
 import org.apache.hadoop.mapreduce.TaskAttemptID;
 import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.sources.v2.DataSourceOptions;
@@ -50,8 +52,8 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
 
   public static class MockHiveWarehouseDataReader extends HiveWarehouseDataReader {
 
-    public MockHiveWarehouseDataReader(LlapInputSplit split, JobConf conf, long arrowAllocatorMax) throws Exception {
-      super(split, conf, arrowAllocatorMax, null);
+    public MockHiveWarehouseDataReader(LlapInputSplit split, JobConf conf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) throws Exception {
+      super(split, conf, arrowAllocatorMax, commonBroadcastInfo);
     }
 
     @Override
@@ -68,26 +70,27 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
 
   public static class MockHiveWarehouseDataReaderFactory extends HiveWarehouseDataReaderFactory {
 
-    public MockHiveWarehouseDataReaderFactory(InputSplit split, JobConf jobConf, long arrowAllocatorMax) {
-    }
+    private final CommonBroadcastInfo commonBroadcastInfo;
 
-    public MockHiveWarehouseDataReaderFactory(InputSplit split, byte[] serializedJobConf, long arrowAllocatorMax) {
-
+    public MockHiveWarehouseDataReaderFactory(InputSplit split, byte[] serializedJobConf, long arrowAllocatorMax,
+                                              CommonBroadcastInfo commonBroadcastInfo) {
+      this.commonBroadcastInfo = commonBroadcastInfo;
     }
 
     @Override
     public DataReader<ColumnarBatch> createDataReader() {
       try {
-        return getDataReader(null, new JobConf(), Long.MAX_VALUE, null);
+        return getDataReader(new LlapInputSplit(), new JobConf(), Long.MAX_VALUE, commonBroadcastInfo);
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
     }
 
     @Override
-    protected DataReader<ColumnarBatch> getDataReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo)
+    protected DataReader<ColumnarBatch> getDataReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax,
+                                                      CommonBroadcastInfo commonBroadcastInfo)
         throws Exception {
-      return new MockHiveWarehouseDataReader(split, jobConf, arrowAllocatorMax);
+      return new MockHiveWarehouseDataReader(split, jobConf, arrowAllocatorMax, commonBroadcastInfo);
     }
   }
 
@@ -104,11 +107,11 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
 
     @Override
     protected DataReaderFactory<ColumnarBatch> getDataReaderFactory(InputSplit split, byte[] serializedJobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo) {
-      return new MockHiveWarehouseDataReaderFactory(split, serializedJobConf, arrowAllocatorMax);
+      return new MockHiveWarehouseDataReaderFactory(split, serializedJobConf, arrowAllocatorMax, getCommonBroadcastInfo());
     }
 
     protected List<DataReaderFactory<ColumnarBatch>> getSplitsFactories(String query) {
-      return Lists.newArrayList(new MockHiveWarehouseDataReaderFactory(null, (JobConf) null, 0));
+      return Lists.newArrayList(new MockHiveWarehouseDataReaderFactory(null, new byte[0], 0, getCommonBroadcastInfo()));
     }
 
     @Override
@@ -117,6 +120,12 @@ public class MockHiveWarehouseConnector extends HiveWarehouseConnector {
       return COUNT_STAR_TEST_VALUE;
     }
 
+    private CommonBroadcastInfo getCommonBroadcastInfo() {
+      LlapInputSplit llapInputSplit = new LlapInputSplit(1, new byte[0], new byte[0],
+          new byte[0], new SplitLocationInfo[0], new Schema(), "hive", new byte[0]);
+      CommonBroadcastInfo commonBroadcastInfo = super.prepareCommonBroadcastInfo(new InputSplit[]{llapInputSplit, llapInputSplit});
+      return commonBroadcastInfo;
+    }
   }
 
   public static class MockLlapArrowBatchRecordReader implements RecordReader<ArrowWrapperWritable, ArrowWrapperWritable> {
