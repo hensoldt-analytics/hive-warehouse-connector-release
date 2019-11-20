@@ -92,7 +92,7 @@ class TestJavaProxy extends FunSuite {
     withSetUpAndTearDown(test, test.testSimpleQuery)
     withSetUpAndTearDown(test, test.testSimpleFilterPushdown)
     withSetUpAndTearDown(test, test.messAroundAndTestReaderState)
-    withSetUpAndTearDown(test, test.testParentFilterAfterChildFilter)
+    withSetUpAndTearDown(test, test.testFiltersJoinedByOR)
     withSetUpAndTearDown(test, test.testJoinWorksWithArrayIndexOutOfBounds)
 
   }

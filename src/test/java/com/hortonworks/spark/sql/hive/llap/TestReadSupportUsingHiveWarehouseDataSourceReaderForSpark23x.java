@@ -47,7 +47,7 @@ public class TestReadSupportUsingHiveWarehouseDataSourceReaderForSpark23x extend
   @Test
   public void testSimpleFilterPushdown() {
     hive.executeQuery("select * from t1").filter("col1 > 1 ").collect();
-    String expectedRegex = "^select `col1` , `col2` , `col3` from \\(select \\* from t1\\) as q_[a-zA-Z0-9]*\\s*WHERE\\s*col1 IS NOT NULL AND col1 > 1\\s*";
+    String expectedRegex = "^select `col1` , `col2` , `col3` from \\(select \\* from t1\\) as q_[a-zA-Z0-9]*\\s*WHERE \\(col1 IS NOT NULL AND col1 > 1\\)\\s*";
     verifyResult(expectedRegex);
   }
 
@@ -57,7 +57,7 @@ public class TestReadSupportUsingHiveWarehouseDataSourceReaderForSpark23x extend
     // 1. there should be filters in query due to df.filter("col1 > 1 ")
     Dataset<Row> df = hive.executeQuery("select * from t1");
     df.filter("col1 > 1 ").collect();
-    String expectedRegex = "^select `col1` , `col2` , `col3` from \\(select \\* from t1\\) as q_[a-zA-Z0-9]*\\s*WHERE\\s*col1 IS NOT NULL AND col1 > 1\\s*";
+    String expectedRegex = "^select `col1` , `col2` , `col3` from \\(select \\* from t1\\) as q_[a-zA-Z0-9]*\\s*WHERE \\(col1 IS NOT NULL AND col1 > 1\\)\\s*";
     verifyResult(expectedRegex);
 
     // 2. now the filter should not come as df does not have any.
@@ -73,16 +73,18 @@ public class TestReadSupportUsingHiveWarehouseDataSourceReaderForSpark23x extend
 
 
   @Test
-  public void testParentFilterAfterChildFilter() {
+  public void testFiltersJoinedByOR() {
     // 1. here spark pushes both the filters together
     Dataset<Row> df = hive.executeQuery("select * from t1").filter("col1 < 3");
     df.filter("col1 > 1 ").collect();
-    String expectedRegex = "^select `col1` , `col2` , `col3` from \\(select \\* from t1\\) as q_[a-zA-Z0-9]*\\s*WHERE\\s*col1 IS NOT NULL AND col1 < 3 AND col1 > 1\\s*";
+    String expectedRegex = "^select `col1` , `col2` , `col3` from \\(select \\* from t1\\) as q_[a-zA-Z0-9]*\\s*WHERE \\(col1 < 3 AND col1 IS NOT NULL AND col1 > 1\\)\\s*";
     verifyResult(expectedRegex);
 
-    // only filter("col1 < 3"); should be applied.
+    // 2. Now the reader has above set of filters(col1 < 3 AND col1 IS NOT NULL AND col1 > 1)
+    // when collect() is called on df, this time spark will push filter("col1 < 3")
+    // so this time both the filters should be OR-ed
     df.collect();
-    expectedRegex = "^select `col1` , `col2` , `col3` from \\(select \\* from t1\\) as q_[a-zA-Z0-9]*\\s*WHERE\\s*col1 IS NOT NULL AND col1 < 3\\s*";
+    expectedRegex = "^select `col1` , `col2` , `col3` from \\(select \\* from t1\\) as q_[a-zA-Z0-9]*\\s*WHERE \\(col1 < 3 AND col1 IS NOT NULL\\) OR \\(col1 < 3 AND col1 IS NOT NULL AND col1 > 1\\)\\s*";
     verifyResult(expectedRegex);
   }
 
