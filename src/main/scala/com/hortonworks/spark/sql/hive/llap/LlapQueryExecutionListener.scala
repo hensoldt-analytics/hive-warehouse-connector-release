@@ -19,31 +19,37 @@ package com.hortonworks.spark.sql.hive.llap
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.util.QueryExecutionListener
 import org.apache.spark.sql.execution.datasources.v2._
+import org.apache.spark.sql.util.QueryExecutionListener
 
 class LlapQueryExecutionListener extends QueryExecutionListener with Logging {
 
   /**
-   * Closes all LlapRelations to notify Hive to clean up.
-   */
-  private def closeLlapRelation(queryExecution: QueryExecution): Unit = {
-    queryExecution.sparkPlan.foreach {
-      case r: RowDataSourceScanExec if r.relation.isInstanceOf[LlapRelation] =>
-        r.relation.asInstanceOf[LlapRelation].close()
-        logInfo(s"Closing Hive connection via ${classOf[LlapRelation].getName}")
-      case s: DataSourceV2ScanExec if s.reader.isInstanceOf[HiveWarehouseDataSourceReader] =>
-        s.reader.asInstanceOf[HiveWarehouseDataSourceReader].close()
-        logInfo(s"Closing Hive connection via ${classOf[HiveWarehouseDataSourceReader].getName}")
-      case _ =>
+    * Closes all resources associated to a HiveWarehouseDataSourceReader.
+    */
+  private def closeResources(executedPlan: SparkPlan): Unit = {
+    for (plan <- executedPlan) {
+      plan match {
+        case r: RowDataSourceScanExec if r.relation.isInstanceOf[LlapRelation] =>
+          r.relation.asInstanceOf[LlapRelation].close()
+          logInfo(s"Closing Hive connection via ${classOf[LlapRelation].getName}")
+        case s: DataSourceV2ScanExec if s.reader.isInstanceOf[HiveWarehouseDataSourceReader] =>
+          s.reader.asInstanceOf[HiveWarehouseDataSourceReader].close()
+          logInfo(s"Closing Hive connection via ${classOf[HiveWarehouseDataSourceReader].getName}")
+        case _ =>
+      }
+
+      if (plan.subqueries.nonEmpty) {
+        plan.subqueries.foreach(closeResources)
+      }
     }
   }
 
   override def onSuccess(funcName: String, qe: QueryExecution, durationNs: Long): Unit = {
-    closeLlapRelation(qe)
+    closeResources(qe.executedPlan)
   }
 
   override def onFailure(funcName: String, qe: QueryExecution, exception: Exception): Unit = {
-    closeLlapRelation(qe)
+    closeResources(qe.executedPlan)
   }
 }

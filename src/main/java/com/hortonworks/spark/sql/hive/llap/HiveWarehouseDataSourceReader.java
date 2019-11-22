@@ -29,6 +29,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -62,7 +63,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
 
   private final String sessionId;
   private CommonBroadcastInfo commonBroadcastInfo;
-  private HwcResource hwcResource;
+  private List<HwcResource> readerResources = new ArrayList<>();
 
   public HiveWarehouseDataSourceReader(Map<String, String> options) {
     this.options = options;
@@ -166,7 +167,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
     }
   }
 
-  protected List<DataReaderFactory<ColumnarBatch>> getSplitsFactories(String query) {
+  protected synchronized List<DataReaderFactory<ColumnarBatch>> getSplitsFactories(String query) {
     List<DataReaderFactory<ColumnarBatch>> tasks = new ArrayList<>();
     try {
       JobConf jobConf = JobUtil.createJobConf(options, query);
@@ -196,7 +197,8 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
       throw new RuntimeException(e);
     } finally {
       // add handle id for HiveWarehouseSessionImpl#close()
-      hwcResource = new HwcResource(options.get(JobUtil.LLAP_HANDLE_ID), commonBroadcastInfo);
+      HwcResource hwcResource = new HwcResource(options.get(JobUtil.LLAP_HANDLE_ID), commonBroadcastInfo);
+      readerResources.add(hwcResource);
       HiveWarehouseSessionImpl.addResourceIdToSession(sessionId, hwcResource);
     }
     return tasks;
@@ -286,7 +288,11 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
 
   public void close() {
     try {
-      HiveWarehouseSessionImpl.closeAndRemoveResourceFromSession(sessionId, hwcResource);
+      for (Iterator<HwcResource> iterator = readerResources.iterator(); iterator.hasNext(); ) {
+        HwcResource hwcResource = iterator.next();
+        HiveWarehouseSessionImpl.closeAndRemoveResourceFromSession(sessionId, hwcResource);
+        iterator.remove();
+      }
     } catch (IOException ioe) {
       throw new RuntimeException(ioe);
     }
