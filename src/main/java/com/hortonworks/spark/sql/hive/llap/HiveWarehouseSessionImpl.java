@@ -196,7 +196,7 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
   }
 
   public boolean executeUpdate(String sql) {
-    return executeUpdate(sql, true);
+    return executeUpdate(sql, false);
   }
 
   @Override

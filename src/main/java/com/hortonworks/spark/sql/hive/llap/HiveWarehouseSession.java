@@ -56,10 +56,6 @@ public interface HiveWarehouseSession {
 
     boolean executeUpdate(String sql);
 
-    /**
-     * @deprecated  Use {@link #executeUpdate(String sql)}
-     */
-    @Deprecated
     boolean executeUpdate(String sql, boolean propagateException);
 
     Dataset<Row> table(String sql);
