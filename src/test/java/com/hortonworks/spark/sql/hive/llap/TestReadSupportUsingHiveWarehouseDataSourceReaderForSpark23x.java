@@ -21,6 +21,7 @@ public class TestReadSupportUsingHiveWarehouseDataSourceReaderForSpark23x extend
   public void setUp() {
     super.setUp();
     session.conf().set(HWConf.COUNT_TASKS.getQualifiedKey(), 1);
+    session.conf().set(HWConf.USE_SPARK23X_SPECIFIC_READER.getQualifiedKey(), true);
 
     hive = HiveWarehouseBuilder.
         session(session).
