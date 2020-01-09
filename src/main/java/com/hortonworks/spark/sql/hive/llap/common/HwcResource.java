@@ -45,13 +45,15 @@ public class HwcResource implements Closeable {
     LOG.info("Closing reader llap resource: {}", llapHandleId);
     LlapBaseInputFormat.close(llapHandleId);
 
-    LOG.info("Closing reader broadcast variables: {}", commonBroadcastInfo);
+    LOG.info("Unpersisting reader broadcast variables: {}", commonBroadcastInfo);
     if (commonBroadcastInfo != null) {
+      // unpersist the broadcast variables.
+      // If this resource is again used(happens in scenario when we call df.rdd or df.collect), then these variables can be used.
       if (commonBroadcastInfo.getPlanSplit().isValid()) {
-        commonBroadcastInfo.getPlanSplit().destroy();
+        commonBroadcastInfo.getPlanSplit().unpersist();
       }
       if (commonBroadcastInfo.getSchemaSplit().isValid()) {
-        commonBroadcastInfo.getSchemaSplit().destroy();
+        commonBroadcastInfo.getSchemaSplit().unpersist();
       }
     }
   }

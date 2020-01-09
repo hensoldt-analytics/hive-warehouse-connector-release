@@ -1,0 +1,1 @@
+[BUG-122708] Handle edge cases in closing HWC reader resource

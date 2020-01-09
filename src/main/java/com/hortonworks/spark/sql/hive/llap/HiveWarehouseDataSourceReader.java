@@ -63,7 +63,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
 
   private final String sessionId;
   private CommonBroadcastInfo commonBroadcastInfo;
-  private List<HwcResource> readerResources = new ArrayList<>();
+  private HwcResource hwcResource;
 
   public HiveWarehouseDataSourceReader(Map<String, String> options) {
     this.options = options;
@@ -197,8 +197,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
       throw new RuntimeException(e);
     } finally {
       // add handle id for HiveWarehouseSessionImpl#close()
-      HwcResource hwcResource = new HwcResource(options.get(JobUtil.LLAP_HANDLE_ID), commonBroadcastInfo);
-      readerResources.add(hwcResource);
+      hwcResource = new HwcResource(options.get(JobUtil.LLAP_HANDLE_ID), commonBroadcastInfo);
       HiveWarehouseSessionImpl.addResourceIdToSession(sessionId, hwcResource);
     }
     return tasks;
@@ -229,7 +228,6 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
     CommonBroadcastInfo commonBroadcastInfo = new CommonBroadcastInfo();
     commonBroadcastInfo.setSchemaSplit(schemaSplitBroadcast);
     commonBroadcastInfo.setPlanSplit(planSplitBroadcast);
-
     return commonBroadcastInfo;
   }
 
@@ -288,11 +286,7 @@ public class HiveWarehouseDataSourceReader implements DataSourceReader, Supports
 
   public void close() {
     try {
-      for (Iterator<HwcResource> iterator = readerResources.iterator(); iterator.hasNext(); ) {
-        HwcResource hwcResource = iterator.next();
-        HiveWarehouseSessionImpl.closeAndRemoveResourceFromSession(sessionId, hwcResource);
-        iterator.remove();
-      }
+      HiveWarehouseSessionImpl.closeAndRemoveResourceFromSession(sessionId, hwcResource);
     } catch (IOException ioe) {
       throw new RuntimeException(ioe);
     }
