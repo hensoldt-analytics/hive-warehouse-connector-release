@@ -176,7 +176,7 @@ libraryDependencies ++= Seq(
     .exclude("org.apache.hbase", "*")
     .exclude("commons-beanutils", "commons-beanutils-core")
     .exclude("commons-collections", "commons-collections")
-    .exclude("commons-logging", "commons-logging") 
+    .exclude("commons-logging", "commons-logging")
     .exclude("io.netty", "netty-buffer")
     .exclude("io.netty", "netty-common")
     .exclude("org.apache.arrow", "arrow-vector")
@@ -264,7 +264,10 @@ assemblyShadeRules in assembly := Seq(
   ShadeRule.rename("org.apache.curator.**" -> "shadecurator.@0").inAll,
   ShadeRule.rename("org.apache.orc.**" -> "shadeorc@0").inAll,
   ShadeRule.rename("org.apache.derby.**" -> "shadederby.@0").inAll,
-  ShadeRule.rename("io.netty.**" -> "shadenetty.@0").inAll
+  ShadeRule.rename("io.netty.**" -> "shadenetty.@0")
+    .inLibrary("io.netty" % "netty-all" % "4.1.17.Final")
+    .inLibrary("io.netty" % "netty-buffer" % "4.1.17.Final")
+    .inProject
 )
 test in assembly := {}
 
