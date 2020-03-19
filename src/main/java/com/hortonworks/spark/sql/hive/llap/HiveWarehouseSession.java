@@ -18,7 +18,6 @@
 package com.hortonworks.spark.sql.hive.llap;
 
 import com.hortonworks.hwc.MergeBuilder;
-import com.hortonworks.spark.sql.hive.llap.query.builder.CreateTableBuilder;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;

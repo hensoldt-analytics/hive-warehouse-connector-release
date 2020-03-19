@@ -1,4 +1,4 @@
-package com.hortonworks.spark.sql.hive.llap.writers;
+package com.hortonworks.spark.sql.hive.llap;
 
 import com.hortonworks.spark.sql.hive.llap.util.SparkToHiveRecordMapper;
 import org.apache.hadoop.conf.Configuration;

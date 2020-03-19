@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package com.hortonworks.spark.sql.hive.llap.query.builder;
+package com.hortonworks.spark.sql.hive.llap;
 
-import com.hortonworks.spark.sql.hive.llap.HiveWarehouseSession;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;

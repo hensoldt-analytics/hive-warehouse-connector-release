@@ -1,4 +1,4 @@
-package com.hortonworks.spark.sql.hive.llap.writers.streaming;
+package com.hortonworks.spark.sql.hive.llap;
 
 import java.util.List;
 

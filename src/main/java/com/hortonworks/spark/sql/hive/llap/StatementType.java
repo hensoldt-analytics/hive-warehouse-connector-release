@@ -1,4 +1,4 @@
-package com.hortonworks.spark.sql.hive.llap.common;
+package com.hortonworks.spark.sql.hive.llap;
 
 import java.util.Map;
 

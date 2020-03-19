@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package com.hortonworks.spark.sql.hive.llap.writers;
+package com.hortonworks.spark.sql.hive.llap;
 
 import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 
-import com.hortonworks.spark.sql.hive.llap.query.builder.LoadDataQueryBuilder;
-import com.hortonworks.spark.sql.hive.llap.DefaultJDBCWrapper;
 import com.hortonworks.spark.sql.hive.llap.common.Column;
 import com.hortonworks.spark.sql.hive.llap.common.DescribeTableOutput;
-import com.hortonworks.spark.sql.hive.llap.common.HWConf;
+import com.hortonworks.spark.sql.hive.llap.query.builder.LoadDataQueryBuilder;
 import com.hortonworks.spark.sql.hive.llap.util.SchemaUtil;
 import com.hortonworks.spark.sql.hive.llap.util.SerializableHadoopConfiguration;
 import com.hortonworks.spark.sql.hive.llap.util.SparkToHiveRecordMapper;
@@ -94,13 +92,13 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
     this.conf = conf;
     populateDBTableNames(options.get("database"));
     this.strictColumnNamesMapping =
-        BooleanUtils.toBoolean(com.hortonworks.spark.sql.hive.llap.common.HWConf.WRITE_PATH_STRICT_COLUMN_NAMES_MAPPING.getFromOptionsMap(options));
+        BooleanUtils.toBoolean(HWConf.WRITE_PATH_STRICT_COLUMN_NAMES_MAPPING.getFromOptionsMap(options));
   }
 
   private void populateDBTableNames(String optionDatabase) {
     String database = optionDatabase;
     if(database == null) {
-      database = com.hortonworks.spark.sql.hive.llap.common.HWConf.DEFAULT_DB.getFromOptionsMap(options);
+      database = HWConf.DEFAULT_DB.getFromOptionsMap(options);
     }
     String table = options.get("table");
     SchemaUtil.TableRef tableRef = SchemaUtil.getDbTableNames(database, table);
@@ -133,10 +131,10 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
 
   @Override public void commit(WriterCommitMessage[] messages) {
     try {
-      String url = com.hortonworks.spark.sql.hive.llap.common.HWConf.RESOLVED_HS2_URL.getFromOptionsMap(options);
-      String user = com.hortonworks.spark.sql.hive.llap.common.HWConf.USER.getFromOptionsMap(options);
-      String dbcp2Configs = com.hortonworks.spark.sql.hive.llap.common.HWConf.DBCP2_CONF.getFromOptionsMap(options);
-      String database = com.hortonworks.spark.sql.hive.llap.common.HWConf.DEFAULT_DB.getFromOptionsMap(options);
+      String url = HWConf.RESOLVED_HS2_URL.getFromOptionsMap(options);
+      String user = HWConf.USER.getFromOptionsMap(options);
+      String dbcp2Configs = HWConf.DBCP2_CONF.getFromOptionsMap(options);
+      String database = HWConf.DEFAULT_DB.getFromOptionsMap(options);
       String table = options.get("table");
       SchemaUtil.TableRef tableRef = SchemaUtil.getDbTableNames(database, table);
       database = tableRef.databaseName;
@@ -198,7 +196,7 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
       LoadDataQueryBuilder builder = new LoadDataQueryBuilder(database, table, path.toString(), jobId,
           sparkToHiveRecordMapper.getSchemaInHiveColumnsOrder())
           .withOverwriteData(overwrite)
-          .withPartitionSpec(options.get(com.hortonworks.spark.sql.hive.llap.common.HWConf.PARTITION_OPTION_KEY))
+          .withPartitionSpec(options.get(HWConf.PARTITION_OPTION_KEY))
           .withCreateTableQuery(createTable)
           .withStorageFormat("ORC")
           .withValidateAgainstHiveColumns(validateAgainstHiveCols)
@@ -218,8 +216,8 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
   }
 
   private Connection getConnection() {
-    String url = com.hortonworks.spark.sql.hive.llap.common.HWConf.RESOLVED_HS2_URL.getFromOptionsMap(options);
-    String user = com.hortonworks.spark.sql.hive.llap.common.HWConf.USER.getFromOptionsMap(options);
+    String url = HWConf.RESOLVED_HS2_URL.getFromOptionsMap(options);
+    String user = HWConf.USER.getFromOptionsMap(options);
     String dbcp2Configs = HWConf.DBCP2_CONF.getFromOptionsMap(options);
     return DefaultJDBCWrapper.getConnector(Option.empty(), url, user, dbcp2Configs);
   }

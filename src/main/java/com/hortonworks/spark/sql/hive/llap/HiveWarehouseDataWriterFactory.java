@@ -1,4 +1,4 @@
-package com.hortonworks.spark.sql.hive.llap.writers;
+package com.hortonworks.spark.sql.hive.llap;
 
 import java.io.IOException;
 

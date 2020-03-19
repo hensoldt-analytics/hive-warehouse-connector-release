@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.collect.Lists;
 import com.hortonworks.spark.sql.hive.llap.record.formatter.DummyStreamingDataSource;
-import com.hortonworks.spark.sql.hive.llap.writers.streaming.StreamingRecordFormatter;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
@@ -18,7 +17,7 @@ import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 import org.junit.After;
 import org.junit.Test;
-import static com.hortonworks.spark.sql.hive.llap.writers.streaming.StreamingRecordFormatter.*;
+import static com.hortonworks.spark.sql.hive.llap.StreamingRecordFormatter.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 

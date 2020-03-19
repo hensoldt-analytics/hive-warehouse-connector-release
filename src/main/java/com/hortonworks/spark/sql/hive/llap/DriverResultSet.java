@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.hortonworks.spark.sql.hive.llap.common;
+package com.hortonworks.spark.sql.hive.llap;
 
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.Row;

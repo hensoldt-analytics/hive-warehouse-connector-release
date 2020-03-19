@@ -3,7 +3,6 @@ package com.hortonworks.spark.sql.hive.llap;
 import org.apache.spark.sql.SparkSession;
 import org.junit.After;
 import org.junit.Before;
-import com.hortonworks.spark.sql.hive.llap.common.HWConf;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 

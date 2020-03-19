@@ -15,36 +15,31 @@
  * limitations under the License.
  */
 
-package com.hortonworks.spark.sql.hive.llap.readers;
+package com.hortonworks.spark.sql.hive.llap;
 
-import com.hortonworks.spark.sql.hive.llap.FilterPushdown;
 import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.v2.reader.SupportsPushDownFilters;
+import org.apache.spark.sql.sources.v2.reader.SupportsPushDownRequiredColumns;
+import org.apache.spark.sql.types.StructType;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 
 /**
- * 1. Spark pulls the unpruned schema -> readSchema()
- * 2. Spark pushes the top-level filters -> pushFilters(..)
- * 3. Spark pulls the filters that are supported by datasource -> pushedFilters(..)
- * 4. Spark pulls factories, where factory/task are 1:1
- *          -> if (enableBatchRead)
- *               createBatchDataReaderFactories(..)
- *             else
- *               createDataReaderFactories(..)
+ * PrunedFilteredHiveWarehouseDataSourceReader implements interfaces needed for pushdowns and pruning.
  */
-public class HiveDataSourceReaderWithFilterPushDown
-        extends HiveWarehouseDataSourceReader
-        implements SupportsPushDownFilters {
+public class PrunedFilteredHiveWarehouseDataSourceReader
+    extends HiveWarehouseDataSourceReader
+    implements SupportsPushDownRequiredColumns, SupportsPushDownFilters {
 
   //Pushed down filters
   //
   //"It's possible that there is no filters in the query and pushFilters(Filter[])
   // is never called, empty array should be returned for this case."
-  protected Filter[] pushedFilters = new Filter[0];
+  Filter[] pushedFilters = new Filter[0];
 
-  public HiveDataSourceReaderWithFilterPushDown(Map<String, String> options) {
+  public PrunedFilteredHiveWarehouseDataSourceReader(Map<String, String> options) throws IOException {
     super(options);
   }
 
@@ -54,7 +49,6 @@ public class HiveDataSourceReaderWithFilterPushDown
         filter((filter) -> FilterPushdown.buildFilterExpression(baseSchema, filter).isDefined()).
         toArray(Filter[]::new);
 
-    // unsupported filters - ones which we cannot push down to hive
     return Arrays.stream(filters).
         filter((filter) -> !FilterPushdown.buildFilterExpression(baseSchema, filter).isDefined()).
         toArray(Filter[]::new);
@@ -65,6 +59,10 @@ public class HiveDataSourceReaderWithFilterPushDown
     return pushedFilters;
   }
 
+  @Override
+  public void pruneColumns(StructType requiredSchema) {
+    this.schema = requiredSchema;
+  }
 
   @Override
   public Filter[] getPushedFilters() {

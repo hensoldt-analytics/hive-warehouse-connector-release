@@ -19,15 +19,10 @@ package com.hortonworks.spark.sql.hive.llap;
 
 import com.google.common.base.Preconditions;
 import com.hortonworks.hwc.MergeBuilder;
-import com.hortonworks.spark.sql.hive.llap.common.HWConf;
 import com.hortonworks.spark.sql.hive.llap.common.HwcResource;
-import com.hortonworks.spark.sql.hive.llap.query.builder.CreateTableBuilder;
-import com.hortonworks.spark.sql.hive.llap.common.DriverResultSet;
 import com.hortonworks.spark.sql.hive.llap.util.FunctionWith4Args;
 import com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil;
-import com.hortonworks.spark.sql.hive.llap.common.HwcSparkListener;
 import com.hortonworks.spark.sql.hive.llap.util.JobUtil;
-import com.hortonworks.spark.sql.hive.llap.query.builder.MergeBuilderImpl;
 import com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil.ExecutionMethod;
 import com.hortonworks.spark.sql.hive.llap.util.StreamingMetaCleaner;
 import com.hortonworks.spark.sql.hive.llap.util.TriFunction;
@@ -51,8 +46,8 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static com.hortonworks.spark.sql.hive.llap.common.HWConf.DEFAULT_DB;
-import static com.hortonworks.spark.sql.hive.llap.common.HWConf.MAX_EXEC_RESULTS;
+import static com.hortonworks.spark.sql.hive.llap.HWConf.DEFAULT_DB;
+import static com.hortonworks.spark.sql.hive.llap.HWConf.MAX_EXEC_RESULTS;
 import static com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil.ExecutionMethod.EXECUTE_HIVE_JDBC;
 import static com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil.ExecutionMethod.EXECUTE_QUERY_LLAP;
 import static com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil.resolveExecutionMethod;
@@ -134,7 +129,7 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
     return dfr.load();
   }
 
-  public static void addResourceIdToSession(String sessionId, HwcResource resourceId) {
+  static void addResourceIdToSession(String sessionId, HwcResource resourceId) {
     LOG.info("Adding resource: {} to current session: {}", resourceId, sessionId);
     synchronized (RESOURCE_IDS_BY_SESSION_ID) {
       RESOURCE_IDS_BY_SESSION_ID.putIfAbsent(sessionId, new HashSet<>());
@@ -142,7 +137,7 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
     }
   }
 
-  public static void closeAndRemoveResourceFromSession(String sessionId, HwcResource hwcResource) throws IOException {
+  static void closeAndRemoveResourceFromSession(String sessionId, HwcResource hwcResource) throws IOException {
     Set<HwcResource> hwcResources;
     boolean resourcePresent;
     synchronized (RESOURCE_IDS_BY_SESSION_ID) {
@@ -183,7 +178,7 @@ public class HiveWarehouseSessionImpl extends com.hortonworks.hwc.HiveWarehouseS
 
   private Dataset<Row> executeSmart(ExecutionMethod current, String sql, Integer numSplitsToDemand) {
     ExecutionMethod resolved = resolveExecutionMethod(
-        BooleanUtils.toBoolean(com.hortonworks.spark.sql.hive.llap.common.HWConf.SMART_EXECUTION.getString(sessionState)), current, sql);
+        BooleanUtils.toBoolean(HWConf.SMART_EXECUTION.getString(sessionState)), current, sql);
     if (EXECUTE_HIVE_JDBC.equals(resolved)) {
       return executeInternal(sql);
     }

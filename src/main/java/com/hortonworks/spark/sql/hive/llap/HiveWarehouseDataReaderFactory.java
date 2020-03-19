@@ -1,4 +1,4 @@
-package com.hortonworks.spark.sql.hive.llap.readers.batch;
+package com.hortonworks.spark.sql.hive.llap;
 
 import com.hortonworks.spark.sql.hive.llap.common.CommonBroadcastInfo;
 import org.apache.hadoop.hive.llap.LlapInputSplit;
@@ -13,7 +13,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 
-public class HiveWarehouseBatchDataReaderFactory implements DataReaderFactory<ColumnarBatch> {
+public class HiveWarehouseDataReaderFactory implements DataReaderFactory<ColumnarBatch> {
     private byte[] splitBytes;
     private byte[] confBytes;
     private transient InputSplit split;
@@ -21,11 +21,11 @@ public class HiveWarehouseBatchDataReaderFactory implements DataReaderFactory<Co
     private CommonBroadcastInfo commonBroadcastInfo;
 
     //No-arg constructor for executors
-    public HiveWarehouseBatchDataReaderFactory() {}
+    public HiveWarehouseDataReaderFactory() {}
 
     //Driver-side setup
-    public HiveWarehouseBatchDataReaderFactory(InputSplit split, byte[] serializedJobConf, long arrowAllocatorMax,
-                                               CommonBroadcastInfo commonBroadcastInfo) {
+    public HiveWarehouseDataReaderFactory(InputSplit split, byte[] serializedJobConf, long arrowAllocatorMax,
+                                          CommonBroadcastInfo commonBroadcastInfo) {
         this.split = split;
         this.arrowAllocatorMax = arrowAllocatorMax;
         this.commonBroadcastInfo = commonBroadcastInfo;
@@ -70,6 +70,6 @@ public class HiveWarehouseBatchDataReaderFactory implements DataReaderFactory<Co
 
     protected DataReader<ColumnarBatch> getDataReader(LlapInputSplit split, JobConf jobConf, long arrowAllocatorMax, CommonBroadcastInfo commonBroadcastInfo)
         throws Exception {
-        return new HiveWarehouseBatchDataReader(split, jobConf, arrowAllocatorMax, commonBroadcastInfo);
+        return new HiveWarehouseDataReader(split, jobConf, arrowAllocatorMax, commonBroadcastInfo);
     }
 }

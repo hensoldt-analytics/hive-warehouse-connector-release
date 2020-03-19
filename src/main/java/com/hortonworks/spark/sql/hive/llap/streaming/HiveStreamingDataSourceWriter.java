@@ -11,10 +11,10 @@ import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.hortonworks.spark.sql.hive.llap.writers.streaming.HiveStreamingDataWriterFactory;
+import com.hortonworks.spark.sql.hive.llap.HiveStreamingDataWriterFactory;
 
-public class HiveStreamingDataSourceStreamWriter implements SupportsWriteInternalRow, StreamWriter {
-  private static Logger LOG = LoggerFactory.getLogger(HiveStreamingDataSourceStreamWriter.class);
+public class HiveStreamingDataSourceWriter implements SupportsWriteInternalRow, StreamWriter {
+  private static Logger LOG = LoggerFactory.getLogger(HiveStreamingDataSourceWriter.class);
 
   private String jobId;
   private StructType schema;
@@ -24,8 +24,8 @@ public class HiveStreamingDataSourceStreamWriter implements SupportsWriteInterna
   private String metastoreUri;
   private String metastoreKerberosPrincipal;
 
-  public HiveStreamingDataSourceStreamWriter(String jobId, StructType schema, String db,
-                                             String table, List<String> partition, final String metastoreUri, final String metastoreKerberosPrincipal) {
+  public HiveStreamingDataSourceWriter(String jobId, StructType schema, String db,
+    String table, List<String> partition, final String metastoreUri, final String metastoreKerberosPrincipal) {
     this.jobId = jobId;
     this.schema = schema;
     this.db = db;

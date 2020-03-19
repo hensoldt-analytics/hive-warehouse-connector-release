@@ -1,10 +1,9 @@
-package com.hortonworks.spark.sql.hive.llap.writers.streaming;
+package com.hortonworks.spark.sql.hive.llap;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
 
-import com.hortonworks.spark.sql.hive.llap.writers.SimpleWriterCommitMessage;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.conf.MetastoreConf;
 import org.apache.hadoop.hive.ql.metadata.Table;
@@ -18,7 +17,9 @@ import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import static com.hortonworks.spark.sql.hive.llap.writers.streaming.StreamingRecordFormatter.*;
+import static com.hortonworks.spark.sql.hive.llap.StreamingRecordFormatter.*;
+
+import com.google.common.base.Joiner;
 
 public class HiveStreamingDataWriter implements DataWriter<InternalRow> {
   private static Logger LOG = LoggerFactory.getLogger(HiveStreamingDataWriter.class);

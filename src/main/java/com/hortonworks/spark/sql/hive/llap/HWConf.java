@@ -15,13 +15,11 @@
  * limitations under the License.
  */
 
-package com.hortonworks.spark.sql.hive.llap.common;
+package com.hortonworks.spark.sql.hive.llap;
 
 import java.util.Map;
 import java.util.Optional;
 
-import com.hortonworks.spark.sql.hive.llap.HiveWarehouseSession;
-import com.hortonworks.spark.sql.hive.llap.HiveWarehouseSessionState;
 import org.apache.spark.sql.RuntimeConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,11 +46,7 @@ public enum HWConf {
   //on batch write path, setting this ensures that dataframe has columns congruent to hive table
   WRITE_PATH_STRICT_COLUMN_NAMES_MAPPING("write.path.strictColumnNamesMapping",
       warehouseKey("write.path.strictColumnNamesMapping"), "true"),
-  BATCH_DATAREADER_COLUMNS_LIMIT("batch.datareader.columns.limit",
-      warehouseKey("batch.datareader.columns.limit"), 1000),
-  DISABLE_PRUNING_AND_PUSHDOWNS("disable.pruning.and.pushdowns", warehouseKey("disable.pruning.and.pushdowns"), true),
-  USE_SPARK23X_SPECIFIC_READER("use.spark23x.specific.reader",
-      warehouseKey("use.spark23x.specific.reader"), false);
+  DISABLE_PRUNING_AND_PUSHDOWNS("disable.pruning.and.pushdowns", warehouseKey("disable.pruning.and.pushdowns"), false);
 
   private HWConf(String simpleKey, String qualifiedKey, Object defaultValue) {
     this.simpleKey = simpleKey;
@@ -72,25 +66,17 @@ public enum HWConf {
   public static final String SPARK_SUBMIT_DEPLOYMODE = "spark.submit.deployMode";
   public static final String PARTITION_OPTION_KEY = "partition";
 
-  public static final String INVALID_READER_CONFIG_ERR_MSG =
-      String.format("Both the configs %s and %s cannot be true at the same time. Only one should be set.",
-          DISABLE_PRUNING_AND_PUSHDOWNS.getQualifiedKey(),
-          USE_SPARK23X_SPECIFIC_READER.getQualifiedKey());
-  public static final String INVALID_BATCH_DATAREADER_COLUMNS_LIMIT_CONFIG_ERR_MSG =
-          String.format("The config %s is invalid. It should be a valid integer > 0.",
-                  BATCH_DATAREADER_COLUMNS_LIMIT.getQualifiedKey());
-
   public String getQualifiedKey() {
     return qualifiedKey;
   }
 
   public void setString(HiveWarehouseSessionState state, String value) {
-    state.getProps().put(qualifiedKey, value);
+    state.props.put(qualifiedKey, value);
     state.session.sessionState().conf().setConfString(qualifiedKey, value);
   }
 
   public void setInt(HiveWarehouseSessionState state, Integer value) {
-    state.getProps().put(qualifiedKey, Integer.toString(value));
+    state.props.put(qualifiedKey, Integer.toString(value));
     state.session.sessionState().conf().setConfString(qualifiedKey, Integer.toString(value));
   }
 
@@ -101,26 +87,22 @@ public enum HWConf {
         .orElse(defaultValue == null ? null : defaultValue.toString());
   }
 
-  public String getString(HiveWarehouseSessionState state) {
+  String getString(HiveWarehouseSessionState state) {
     return Optional.
-      ofNullable((String) state.getProps().get(qualifiedKey)).
+      ofNullable((String) state.props.get(qualifiedKey)).
       orElse(state.session.sessionState().conf().getConfString(
         qualifiedKey, (String) defaultValue)
       );
   }
 
-  public Integer getInt(HiveWarehouseSessionState state) {
+  Integer getInt(HiveWarehouseSessionState state) {
     return Integer.parseInt(
       Optional.
-        ofNullable(state.getProps().get(qualifiedKey)).
+        ofNullable(state.props.get(qualifiedKey)).
         orElse(state.session.sessionState().conf().getConfString(
         qualifiedKey, defaultValue.toString())
       )
       );
-  }
-
-  public Object getDefaultValue() {
-    return this.defaultValue;
   }
 
   String simpleKey;
