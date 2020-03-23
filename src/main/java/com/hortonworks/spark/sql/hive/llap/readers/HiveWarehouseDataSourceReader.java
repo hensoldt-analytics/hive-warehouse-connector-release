@@ -262,6 +262,12 @@ public class HiveWarehouseDataSourceReader implements SupportsScanColumnarBatch 
   private InputSplit[] getSplits(String query) {
     try {
       jobConf = JobUtil.createJobConf(options, query);
+      if (enableBatchRead) {
+        jobConf.set("llap.session.queries.for.get.num.splits", "set hive.llap.external.client.use.hybrid.calendar=true");
+      } else {
+        jobConf.set("llap.session.queries.for.get.num.splits", "set hive.llap.external.client.use.hybrid.calendar=false");
+      }
+
       LlapBaseInputFormat llapInputFormat = new LlapBaseInputFormat(false, Long.MAX_VALUE);
       LOG.info("Additional props for generating splits: {}", options.get(JobUtil.SESSION_QUERIES_FOR_GET_NUM_SPLITS));
       //numSplits arg not currently supported, use 1 as dummy arg
