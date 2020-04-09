@@ -283,6 +283,10 @@ assemblyMergeStrategy in assembly := {
   case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first
   case PathList("git.properties") => MergeStrategy.first
   case PathList("META-INF", "services", "org.apache.hadoop.fs.FileSystem") => MergeStrategy.discard
+
+  // For hive related services, we need to have service provider from both HWC jar and spark-acid jar. So filterDistinctLines is used here.
+  case PathList("META-INF", "services", "org.apache.hadoop.hive.ql.io.StorageFormatDescriptor") => MergeStrategy.filterDistinctLines
+
   case x if x.endsWith("package-info.class") => MergeStrategy.first
   // Need to include all the implementations of TokenIdentifier
   // See https://hortonworks.jira.com/browse/BUG-122211 for more details
