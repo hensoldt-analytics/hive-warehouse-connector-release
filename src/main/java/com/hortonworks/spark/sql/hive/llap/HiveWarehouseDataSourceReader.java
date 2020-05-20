@@ -72,6 +72,15 @@ public class HiveWarehouseDataSourceReader
   public HiveWarehouseDataSourceReader(Map<String, String> options) throws IOException {
     this.options = options;
     sessionId = getCurrentSessionId();
+
+    //this is a hack to prevent the following situation:
+
+    //Spark(v 2.4.0) creates one instance of DataSourceReader to call readSchema() and then a new instance of DataSourceReader
+    //to call pushFilters(), planBatchInputPartitions() etc. Since it uses different DataSourceReader instances,
+    //and reads schema in former instance, schema remains null in the latter instance(which causes problems for other methods).
+    //More discussion: http://apache-spark-user-list.1001560.n3.nabble.com/DataSourceV2-APIs-creating-multiple-instances-of-DataSourceReader-and-hence-not-preserving-the-state-tc33646.html
+    //Also a null check on schema is already there in readSchema() to prevent initialization more than once just in case.
+    readSchema();
   }
 
   //if(schema is empty) -> df.count()
