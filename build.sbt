@@ -18,6 +18,7 @@ val log4j2Version = sys.props.getOrElse("log4j2.version", "2.4.1")
 val tezVersion = sys.props.getOrElse("tez.version", "0.9.1")
 val thriftVersion = sys.props.getOrElse("thrift.version", "0.9.3-1")
 val repoUrl = sys.props.getOrElse("repourl", "https://repo1.maven.org/maven2/")
+val sparkAcidVersion = sys.props.getOrElse("spark.acid.version", "0.4.4.3.1.5.0-SNAPSHOT")
 
 spName := "hortonworks/hive-warehouse-connector"
 
@@ -31,6 +32,7 @@ checksums in update := Nil
 
 libraryDependencies ++= Seq(
 
+  "com.qubole" % "spark-acid_2.11" % sparkAcidVersion,
   "junit" % "junit" % "4.11" % "test",
   "com.novocode" % "junit-interface" % "0.11" % "test",
   "org.apache.spark" %% "spark-core" % testSparkVersion.value % "provided" force(),
