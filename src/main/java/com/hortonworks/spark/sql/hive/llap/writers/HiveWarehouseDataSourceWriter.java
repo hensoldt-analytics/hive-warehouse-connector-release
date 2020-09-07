@@ -164,10 +164,11 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
       String dbcp2Configs = com.hortonworks.spark.sql.hive.llap.common.HWConf.DBCP2_CONF.getFromOptionsMap(options);
       String database = com.hortonworks.spark.sql.hive.llap.common.HWConf.DEFAULT_DB.getFromOptionsMap(options);
       String table = options.get("table");
+      String password =  com.hortonworks.spark.sql.hive.llap.common.HWConf.PASSWORD.getFromOptionsMap(options);
       SchemaUtil.TableRef tableRef = SchemaUtil.getDbTableNames(database, table);
       database = tableRef.databaseName;
       table = tableRef.tableName;
-      try (Connection conn = DefaultJDBCWrapper.getConnector(Option.empty(), url, user, dbcp2Configs)) {
+      try (Connection conn = DefaultJDBCWrapper.getConnector(Option.empty(), url, user, password, dbcp2Configs)) {
         handleWriteWithSaveMode(database, table, conn, needLoadData);
       } catch (java.sql.SQLException e) {
         throw new RuntimeException(e);
@@ -283,7 +284,8 @@ public class HiveWarehouseDataSourceWriter implements SupportsWriteInternalRow {
     String url = com.hortonworks.spark.sql.hive.llap.common.HWConf.RESOLVED_HS2_URL.getFromOptionsMap(options);
     String user = com.hortonworks.spark.sql.hive.llap.common.HWConf.USER.getFromOptionsMap(options);
     String dbcp2Configs = HWConf.DBCP2_CONF.getFromOptionsMap(options);
-    return DefaultJDBCWrapper.getConnector(Option.empty(), url, user, dbcp2Configs);
+    String password = HWConf.PASSWORD.getFromOptionsMap(options);
+    return DefaultJDBCWrapper.getConnector(Option.empty(), url, user,password, dbcp2Configs);
   }
 
   @Override public void abort(WriterCommitMessage[] messages) {

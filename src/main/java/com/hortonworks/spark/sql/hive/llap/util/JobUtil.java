@@ -1,5 +1,12 @@
 package com.hortonworks.spark.sql.hive.llap.util;
 
+import com.google.common.base.Preconditions;
+import com.hortonworks.hwc.plan.HwcPlannerStatistics;
+import com.hortonworks.spark.sql.hive.llap.DefaultJDBCWrapper;
+import com.hortonworks.spark.sql.hive.llap.common.Column;
+import com.hortonworks.spark.sql.hive.llap.common.DescribeTableOutput;
+
+
 import com.hortonworks.spark.sql.hive.llap.common.HWConf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.hadoop.hive.ql.io.arrow.ArrowWrapperWritable;
@@ -20,6 +27,7 @@ import org.apache.spark.sql.SparkSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -27,6 +35,7 @@ import java.sql.Driver;
 import java.sql.DriverManager;
 import java.util.Enumeration;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.UUID;
 
 public class JobUtil {
@@ -122,4 +131,48 @@ public class JobUtil {
     LlapBaseInputFormat input = new LlapBaseInputFormat(true, allocator);
     return input.getRecordReader(split, conf, null);
   }
+
+  /**
+   *
+   * Makes a jdbc call and gets the output of `desc formatted {table}`. Based on that populates
+   *  - sizeInBytes
+   *  - numRows
+   *  in HwcPlannerStatistics.
+   *  Currently spark supports these two only for custom datasources.
+   *
+   *  Different datasources may use this method to get the table statistics if they are implementing {@link org.apache.spark.sql.sources.v2.reader.SupportsReportStatistics}
+   *
+   * @param database database name
+   * @param table table name
+   * @param conn jdbc connection instance
+   * @return HwcPlannerStatistics, throws exception if numRows or totalSize is not found.
+   */
+  public static HwcPlannerStatistics getStatisticsForTable(String database, String table, Connection conn) {
+    DescribeTableOutput describeTable = DefaultJDBCWrapper.describeTable(conn, database, table);
+
+    String totalSize = null;
+    String numRows = null;
+
+    for (Column column : describeTable.getDetailedTableInfoColumns()) {
+
+      if (column.getDataType() != null) {
+        if (column.getDataType().trim().equals("numRows")) {
+          numRows = column.getComment();
+        } else if (column.getDataType().trim().equals("totalSize")) {
+          totalSize = column.getComment();
+        }
+      }
+
+      if (totalSize != null && numRows != null) {
+        break;
+      }
+    }
+
+    Preconditions.checkNotNull(numRows, "numRows found null for table - " + table);
+    Preconditions.checkNotNull(totalSize, "totalSize found null for table - " + table);
+
+    return new HwcPlannerStatistics(OptionalLong.of(Long.parseLong(totalSize)),
+            OptionalLong.of(Long.parseLong(numRows)));
+  }
+
 }

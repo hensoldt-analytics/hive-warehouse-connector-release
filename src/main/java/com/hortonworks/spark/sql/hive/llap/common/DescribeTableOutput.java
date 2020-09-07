@@ -29,6 +29,8 @@ public class DescribeTableOutput {
   private List<Column> partitionedColumns;
   private List<Column> detailedTableInfo;
   private List<Column> storageInfo;
+  private List<Column> detailedTableInfoColumns;
+  private List<Column> storageInfoColumns;
 
   //Add more as needed
 
@@ -89,5 +91,21 @@ public class DescribeTableOutput {
         ", detailedTableInfo=" + detailedTableInfo +
         ", storageInfo=" + storageInfo +
         '}';
+  }
+
+  public List<Column> getDetailedTableInfoColumns() {
+    return detailedTableInfoColumns;
+  }
+
+  public List<Column> getStorageInfoColumns() {
+    return storageInfoColumns;
+  }
+
+  public void setDetailedTableInfoColumns(List<Column> detailedTableInfoColumns) {
+    this.detailedTableInfoColumns = detailedTableInfoColumns;
+  }
+
+  public void setStorageInfoColumns(List<Column> storageInfoColumns) {
+    this.storageInfoColumns = storageInfoColumns;
   }
 }
