@@ -17,7 +17,7 @@
 
 package com.hortonworks.spark.sql.hive.llap
 
-import com.hortonworks.spark.sql.hive.llap.common.HWConf;
+import com.hortonworks.spark.sql.hive.llap.common.HWConf
 import java.net.URI
 import java.sql.{Connection, DatabaseMetaData, Driver, DriverManager, ResultSet, ResultSetMetaData, SQLException}
 import java.util.{Properties, StringJoiner}
@@ -201,10 +201,13 @@ class JDBCWrapper {
       val storageInfoCols = new java.util.ArrayList[Column]()
 
       while (rs.next()) {
-        val colName = rs.getString("col_name")
-        if (!colName.trim.isEmpty && !colName.startsWith("#")) {
-          val dataType = rs.getString("data_type")
-          val comment = rs.getString("comment")
+        var colName = rs.getString("col_name")
+        colName = if (colName != null) colName.trim else null
+        if (!colName.startsWith("#")) {
+          var dataType = rs.getString("data_type")
+          dataType = if (dataType != null) dataType.trim else null
+          var comment = rs.getString("comment")
+          comment = if (comment != null) comment.trim else null
           val column = new Column(colName.trim, dataType, comment)
           if (storageInfoSeen) {
             storageInfoCols.add(column)
@@ -212,10 +215,9 @@ class JDBCWrapper {
             detailedInfoCols.add(column)
           } else if (partInfoSeen) {
             partitionedCols.add(column)
-          } else {
+          } else if (!colName.trim.isEmpty) {
             columns.add(column)
           }
-
         } else if (colName.startsWith("# Partition Information")) {
           partInfoSeen = true
         } else if (colName.startsWith("# Detailed Table Information")) {
@@ -229,6 +231,8 @@ class JDBCWrapper {
       describeTableOutput.setPartitionedColumns(partitionedCols)
       describeTableOutput.setDetailedTableInfo(detailedInfoCols)
       describeTableOutput.setStorageInfo(storageInfoCols)
+      describeTableOutput.setDetailedTableInfoColumns(detailedInfoCols)
+      describeTableOutput.setStorageInfoColumns(storageInfoCols)
       describeTableOutput
     } finally {
       rs.close()
@@ -351,7 +355,7 @@ class JDBCWrapper {
     useDatabase(conn, currentDatabase)
     val stmt = conn.prepareStatement(query)
     log.debug(query)
-    //TODO Workaround until HIVE-14388 provides stmt.numRowsAffected
+    // TODO Workaround until HIVE-14388 provides stmt.numRowsAffected
     try {
       stmt.execute()
       true
@@ -414,7 +418,12 @@ class JDBCWrapper {
       userProvidedDriverClass: Option[String],
       url: String,
       userName: String,
+      password: String,
       dbcp2Configs: String): Connection = {
+    var passwordInt = "password"
+    if (password != null) {
+      passwordInt = password
+    }
     log.debug(s"${userProvidedDriverClass.getOrElse("")} $url $userName password")
     val subprotocol = new URI(url.stripPrefix("jdbc:")).getScheme
     val driverClass: Class[Driver] = getDriverClass(subprotocol, userProvidedDriverClass)
@@ -454,6 +463,7 @@ class JDBCWrapper {
       Option.empty,
       HWConf.RESOLVED_HS2_URL.getString(sessionState),
       HWConf.USER.getString(sessionState),
+      HWConf.PASSWORD.getString(sessionState),
       HWConf.DBCP2_CONF.getString(sessionState)
     )
   }

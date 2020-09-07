@@ -1,8 +1,11 @@
 package com.hortonworks.spark.sql.hive.llap.readers;
 
 import com.google.common.base.Preconditions;
+import com.hortonworks.hwc.plan.HwcPlannerStatistics;
 import com.hortonworks.spark.sql.hive.llap.DefaultJDBCWrapper;
 import com.hortonworks.spark.sql.hive.llap.common.DriverResultSet;
+import com.hortonworks.spark.sql.hive.llap.util.QueryExecutionUtil;
+import org.apache.spark.sql.internal.SQLConf;
 import com.hortonworks.spark.sql.hive.llap.common.HWConf;
 import com.hortonworks.spark.sql.hive.llap.HiveWarehouseSessionImpl;
 import com.hortonworks.spark.sql.hive.llap.common.SerializableLlapInputSplit;
@@ -24,9 +27,7 @@ import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.sources.Filter;
-import org.apache.spark.sql.sources.v2.reader.DataReaderFactory;
-import org.apache.spark.sql.sources.v2.reader.DataSourceReader;
-import org.apache.spark.sql.sources.v2.reader.SupportsScanColumnarBatch;
+import org.apache.spark.sql.sources.v2.reader.*;
 import org.apache.spark.sql.vectorized.ColumnarBatch;
 import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
@@ -42,6 +43,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 import static com.hortonworks.spark.sql.hive.llap.FilterPushdown.buildWhereClause;
 import static com.hortonworks.spark.sql.hive.llap.util.HiveQlUtil.projections;
@@ -59,7 +61,7 @@ import static scala.collection.JavaConversions.asScalaBuffer;
  *          else
  *            createDataReaderFactories(..)
  */
-public class HiveWarehouseDataSourceReader implements SupportsScanColumnarBatch {
+public class HiveWarehouseDataSourceReader implements SupportsScanColumnarBatch, SupportsReportStatistics {
 
   //The original schema
   protected StructType baseSchema = null;
@@ -216,6 +218,34 @@ public class HiveWarehouseDataSourceReader implements SupportsScanColumnarBatch 
     }
   }
 
+  // spark uses these stats to generate better plan for queries
+  // for now we only support for StatementType.FULL_TABLE_SCAN as we can determine stats for them.
+  // If reader is invoked via translation rule (Extensions.scala) then we automatically get StatementType.FULL_TABLE_SCAN
+  // as we have one-to-one mapping of table to reader.
+  @Override
+  public Statistics getStatistics() {
+    SQLConf conf = SparkSession.getActiveSession().get().sqlContext().conf();
+    // initialize with default stats
+    HwcPlannerStatistics statistics = new HwcPlannerStatistics(OptionalLong.of(conf.defaultSizeInBytes()),
+            OptionalLong.empty());
+
+    try (Connection conn = QueryExecutionUtil.getConnection(options)) {
+      if (StatementType.FULL_TABLE_SCAN.equals(getQueryType())) {
+        String dbName = HWConf.DEFAULT_DB.getFromOptionsMap(options);
+        SchemaUtil.TableRef tableRef = SchemaUtil.getDbTableNames(dbName, options.get("table"));
+        LOG.debug("Found full table scan for table {}.{}, estimating stastics",
+                tableRef.databaseName, tableRef.tableName);
+        statistics = JobUtil.getStatisticsForTable(tableRef.databaseName, tableRef.tableName, conn);
+        LOG.debug("Estimated statistics {} for table {}.{}", statistics, tableRef.databaseName, tableRef.tableName);
+      }
+    } catch (Exception e) {
+      LOG.error("Unable to get table properties, setting to defaults " + statistics
+              + " Error message - " + e.getMessage(), e);
+    }
+    return statistics;
+  }
+
+
   protected synchronized  <T> List<DataReaderFactory<T>> getDataReaderSplitsFactories(String query) throws IOException {
     List<DataReaderFactory<T>> tasks = new ArrayList<>();
     InputSplit[] splits = getSplits(query);
@@ -334,8 +364,9 @@ public class HiveWarehouseDataSourceReader implements SupportsScanColumnarBatch 
   private Connection getConnection() {
     String url = HWConf.RESOLVED_HS2_URL.getFromOptionsMap(options);
     String user = HWConf.USER.getFromOptionsMap(options);
+    String password = HWConf.PASSWORD.getFromOptionsMap(options);
     String dbcp2Configs = HWConf.DBCP2_CONF.getFromOptionsMap(options);
-    return DefaultJDBCWrapper.getConnector(Option.empty(), url, user, dbcp2Configs);
+    return DefaultJDBCWrapper.getConnector(Option.empty(), url, user, password, dbcp2Configs);
   }
 
   private long getArrowAllocatorMax () {

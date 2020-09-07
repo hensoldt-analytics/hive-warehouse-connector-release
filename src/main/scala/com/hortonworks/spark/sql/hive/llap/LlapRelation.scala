@@ -58,8 +58,9 @@ case class LlapRelation(
   @transient lazy val tableSchema: StructType = {
     val url = parameters("url")
     val user = parameters("user.name")
+    val password = parameters("password")
     val dbcp2Configs = parameters("dbcp2.conf")
-    val conn = DefaultJDBCWrapper.getConnector(None, url, user, dbcp2Configs)
+    val conn = DefaultJDBCWrapper.getConnector(None, url, user,password, dbcp2Configs)
     val queryKey = getQueryType()
 
     try {
@@ -151,8 +152,9 @@ case class LlapRelation(
   private def getConnection(): Connection = {
     val url = parameters("url")
     val user = parameters("user.name")
+    val password = parameters("password")
     val dbcp2Configs = parameters("dbcp2.conf")
-    DefaultJDBCWrapper.getConnector(None, url, user, dbcp2Configs)
+    DefaultJDBCWrapper.getConnector(None, url, user, password, dbcp2Configs)
   }
 
   private def getDbTableNames(nameStr: String): Tuple2[String, String] = {
