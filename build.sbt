@@ -208,6 +208,7 @@ assemblyShadeRules in assembly := Seq(
   ShadeRule.rename("org.apache.hadoop.hive.thrift.**" -> "shadehive.@0").inAll,
   ShadeRule.rename("org.apache.curator.**" -> "shadecurator.@0").inAll,
   ShadeRule.rename("org.apache.orc.**" -> "shadeorc@0").inAll,
+  ShadeRule.rename("org.apache.parquet.**" -> "shadeparquet@0").inAll,
   ShadeRule.rename("org.apache.derby.**" -> "shadederby.@0").inAll,
   ShadeRule.rename("org.apache.thrift.**" -> "shadethrift.@0").inAll,
   ShadeRule.rename("com.facebook.fb303.**" -> "shadethrift.@0").inAll,
