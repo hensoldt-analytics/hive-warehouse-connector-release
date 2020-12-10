@@ -21,6 +21,10 @@ import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import java.io.IOException;
+
+import org.apache.hadoop.hive.conf.HiveConf;
+import org.apache.hadoop.hive.ql.Context;
 import com.google.common.base.Preconditions;
 import com.hortonworks.spark.sql.hive.llap.CreateTableBuilder;
 import com.hortonworks.spark.sql.hive.llap.common.Column;
@@ -356,9 +360,15 @@ public class DataWriteQueryBuilder {
     String dummyQuery = String.format("INSERT INTO TABLE t1 PARTITION (%s) SELECT 1", partitionSpec);
     ASTNode ast;
     try {
-      ast = ParseUtils.parse(dummyQuery);
+      HiveConf conf = new HiveConf();
+      conf.set("_hive.hdfs.session.path", "/tmp/some_dummy_path");
+      conf.set("_hive.local.session.path", "/tmp/some_dummy_path");
+      Context ctx = new Context(conf);
+      ast = ParseUtils.parse(dummyQuery,ctx);
     } catch (ParseException e) {
       throw new IllegalArgumentException("Invalid partition spec: " + partitionSpec, e);
+    } catch (IOException ex) {
+      throw new RuntimeException(ex);
     }
     // In our dummyQuery above with partitionSpec, we find TOK_PARTSPEC at fourth level in the parse tree
     // i.e. TOK_QUERY -> TOK_INSERT -> TOK_INSERT_INTO -> TOK_TAB -> TOK_PARTSPEC
